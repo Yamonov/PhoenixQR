@@ -1,0 +1,10 @@
+PhoenixQR third-party notices
+
+This project includes the following runtime dependency in the bundled browser JavaScript.
+
+jsQR
+- Version: 1.4.0
+- Repository: https://github.com/cozmo/jsQR
+- License: Apache License 2.0
+- License text: licenses/jsqr-LICENSE.txt
+
