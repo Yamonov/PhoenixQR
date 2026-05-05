@@ -19,6 +19,130 @@ const MAX_DETECTION_SIDE = 1200;
 const DETECTION_TIME_BUDGET_MS = 7000;
 const DETECTION_YIELD_EVERY = 3;
 
+const TRANSLATIONS = {
+  ja: {
+    brandTagline: "セル構成の全く同じQRコードを生成",
+    dropPlaceholder: "PNG/JPEGをドロップ",
+    initialMessage: "画像を選択してください。",
+    comparisonTitle: "セルをクリックやドラッグで修正できます",
+    opacityLabel: "不透明度：",
+    overlayHide: "オーバーレイを非表示にする",
+    overlayShow: "オーバーレイを表示する",
+    overlayToggleTitle: "オーバーレイの表示切替",
+    exportTitle: "修正したQRを書き出し",
+    proofButton: "プレビュー状態をPNGとして書き出し（証明用）",
+    pngDtpSub: "DTP向け1セル1pxグレースケール",
+    pngOfficeSub: "Photoshop/Office等向け1セル20px",
+    epsSub: "２値",
+    donateLink: "寄付する",
+    trademark: "QRコードは株式会社デンソーウェーブの登録商標です",
+    selectPngJpg: "PNG または JPG を選択してください。",
+    loadingImage: "画像を読み込んでいます。",
+    detectingQr: "QR の範囲を検出しています。",
+    detectFailed: "QR を検出または読み取りできませんでした。破損、低解像度、強い反射、または範囲外の可能性があります。",
+    versionCellFailed: "QR バージョンからセル数を算出できませんでした。",
+    extractingCells: "セル構成を抽出しています。",
+    formatFailed: "フォーマット情報を復元できませんでした。破損またはセル判定の失敗として扱います。",
+    doneWithNotice: ({ notice }) => `完了しました。${notice}`,
+    doneVerified: "完了しました。抽出 matrix は jsQR のエラー訂正後デコードで再確認済みです。",
+    doneWithWarning: ({ warningText }) => `完了しました。ただし ${warningText}`,
+    imageLoadTimeout: "画像の読み込みが完了しませんでした。別の JPG/PNG に書き出してから再試行してください。",
+    imageLoadFailed: "画像を読み込めませんでした。",
+    inputScaledWarning: ({ percent }) => `入力画像が大きいため ${percent}% に縮小して解析しました。`,
+    barcodeDetectorNotice: "ブラウザの QR 検出を使って範囲を取得しました。",
+    detectionTimeout:
+      "QR の検出に時間がかかりすぎたため停止しました。もう少し QR が大きく写った画像、または QR 周辺を切り出した画像で再試行してください。",
+    detectionNoticeDarkRegion: "QR らしい範囲を切り出し",
+    detectionNoticeGrid: "複数の候補範囲から",
+    detectionNoticeContrast: "コントラスト補正を使って",
+    detectionNoticeBinary: "二値化した画像で",
+    detectionNoticeGray: "グレースケール画像で",
+    detectionNoticeScaled: "画像サイズを調整して",
+    detectionNoticeComplete: ({ parts }) => `${parts.join("、")}検出しました。`,
+    extractedMatrixUnreadableReason: "抽出した matrix を jsQR で再読み取りできませんでした。破損またはセル判定の失敗として扱います。",
+    extractedQrUnreadable: "抽出後QRは読み取り不可",
+    decodedMismatchReason: "元画像と抽出 matrix の jsQR エラー訂正後デコード値が一致しません。",
+    verifyMatch: "一致（エラー訂正後）",
+    verifyMismatch: "不一致（エラー訂正後）",
+    readDifferenceMatch: ({ version }) => `jsQRのエラー訂正後デコード値が一致。Version ${version}`,
+    readDifferenceUnreadable: ({ version }) => `抽出QRはjsQRで読み取り不可。検出QR: Version ${version}`,
+    unreadable: "（読み取り不可）",
+    editAction: ({ count, value }) => `${count}セルを${value ? "置きました" : "外しました"}。`,
+    editOk: ({ actionText }) => `${actionText} jsQRのエラー訂正後デコード値は一致しています。`,
+    editMismatch: ({ actionText }) => `${actionText} jsQRのエラー訂正後デコード値に差違があります。`,
+    proofSourceTitle: "元画像＋検出範囲",
+    proofProcessedTitle: "検出処理画像",
+    previewPngExportFailed: "プレビューPNGを書き出せませんでした。",
+  },
+  en: {
+    brandTagline: "Generate a QR code with the exact same cell structure",
+    dropPlaceholder: "Drop PNG/JPEG",
+    initialMessage: "Select an image.",
+    comparisonTitle: "Click or drag cells to edit",
+    opacityLabel: "Opacity:",
+    overlayHide: "Hide overlay",
+    overlayShow: "Show overlay",
+    overlayToggleTitle: "Toggle overlay",
+    exportTitle: "Export the edited QR",
+    proofButton: "Export preview state as PNG (proof)",
+    pngDtpSub: "For DTP: 1 cell = 1 px grayscale",
+    pngOfficeSub: "For Photoshop/Office: 1 cell = 20 px",
+    epsSub: "1-bit",
+    donateLink: "Donate",
+    trademark: "QR Code is a registered trademark of DENSO WAVE INCORPORATED.",
+    selectPngJpg: "Select a PNG or JPG file.",
+    loadingImage: "Loading image.",
+    detectingQr: "Detecting QR area.",
+    detectFailed: "Could not detect or read the QR code. It may be damaged, too low-resolution, strongly reflective, or outside the frame.",
+    versionCellFailed: "Could not calculate the cell count from the QR version.",
+    extractingCells: "Extracting cell structure.",
+    formatFailed: "Could not restore format information. Treating this as damage or cell-detection failure.",
+    doneWithNotice: ({ notice }) => `Done. ${notice}`,
+    doneVerified: "Done. The extracted matrix was rechecked with jsQR's error-corrected decode result.",
+    doneWithWarning: ({ warningText }) => `Done, but ${warningText}`,
+    imageLoadTimeout: "Image loading did not finish. Export it again as another JPG/PNG and retry.",
+    imageLoadFailed: "Could not load the image.",
+    inputScaledWarning: ({ percent }) => `The input image was large, so it was scaled to ${percent}% for analysis.`,
+    barcodeDetectorNotice: "Detected the area using the browser QR detector.",
+    detectionTimeout:
+      "QR detection took too long and was stopped. Try again with a larger QR in the image, or crop around the QR.",
+    detectionNoticeDarkRegion: "a cropped candidate area",
+    detectionNoticeGrid: "multiple candidate areas",
+    detectionNoticeContrast: "contrast correction",
+    detectionNoticeBinary: "binarization",
+    detectionNoticeGray: "grayscale conversion",
+    detectionNoticeScaled: "image resizing",
+    detectionNoticeComplete: ({ parts }) => `Detected using ${parts.join(", ")}.`,
+    extractedMatrixUnreadableReason: "The extracted matrix could not be reread by jsQR. Treating this as damage or cell-detection failure.",
+    extractedQrUnreadable: "Extracted QR is unreadable",
+    decodedMismatchReason: "The original image and extracted matrix do not match by jsQR's error-corrected decode result.",
+    verifyMatch: "Match (after error correction)",
+    verifyMismatch: "Mismatch (after error correction)",
+    readDifferenceMatch: ({ version }) => `jsQR's error-corrected decode result matches. Version ${version}`,
+    readDifferenceUnreadable: ({ version }) => `Extracted QR is unreadable. Detected QR: Version ${version}`,
+    unreadable: "(unreadable)",
+    editAction: ({ count, value }) => `${count} cell${count === 1 ? "" : "s"} ${value ? "set" : "cleared"}.`,
+    editOk: ({ actionText }) => `${actionText} jsQR's error-corrected decode result matches.`,
+    editMismatch: ({ actionText }) => `${actionText} jsQR's error-corrected decode result differs.`,
+    proofSourceTitle: "Original + detected area",
+    proofProcessedTitle: "Processed detection image",
+    previewPngExportFailed: "Could not export the preview PNG.",
+  },
+};
+
+const appLocale = resolveLocale();
+
+function resolveLocale() {
+  const primaryLanguage = (navigator.languages?.[0] || navigator.language || "en").toLowerCase();
+  return primaryLanguage.startsWith("ja") ? "ja" : "en";
+}
+
+function t(key, params = {}) {
+  const entry = TRANSLATIONS[appLocale][key] ?? TRANSLATIONS.en[key] ?? key;
+  if (typeof entry === "function") return entry(params);
+  return entry;
+}
+
 const els = {
   dropZone: document.querySelector("#dropZone"),
   fileInput: document.querySelector("#fileInput"),
@@ -30,6 +154,7 @@ const els = {
   overlayOpacityValue: document.querySelector("#overlayOpacityValue"),
   overlayToggle: document.querySelector("#overlayToggle"),
   matrixSize: document.querySelector("#matrixSize"),
+  downloadPreviewProof: document.querySelector("#downloadPreviewProof"),
   downloadPngDtp: document.querySelector("#downloadPngDtp"),
   downloadPngOffice: document.querySelector("#downloadPngOffice"),
   downloadSvg: document.querySelector("#downloadSvg"),
@@ -114,6 +239,11 @@ els.downloadEps.addEventListener("click", () => {
   );
 });
 
+els.downloadPreviewProof.addEventListener("click", () => {
+  if (!latestResult) return;
+  void savePreviewProof();
+});
+
 els.warpedCanvas.addEventListener("pointerdown", (event) => {
   beginComparisonDrag(event);
 });
@@ -151,43 +281,68 @@ els.overlayToggle.addEventListener("click", () => {
   }
 });
 
+applyLocale();
 updateOverlayOpacityLabel();
 updateOverlayToggle();
+
+function applyLocale() {
+  document.documentElement.lang = appLocale;
+
+  const staticText = [
+    ["#brandTagline", "brandTagline"],
+    ["#sourcePlaceholder", "dropPlaceholder"],
+    ["#message", "initialMessage"],
+    ["#comparisonTitle", "comparisonTitle"],
+    ["#overlayOpacityLabel", "opacityLabel"],
+    ["#exportTitle", "exportTitle"],
+    ["#downloadPreviewProof", "proofButton"],
+    ["#downloadPngDtp .button-sub", "pngDtpSub"],
+    ["#downloadPngOffice .button-sub", "pngOfficeSub"],
+    ["#downloadEps .button-sub", "epsSub"],
+    ["#donateLink", "donateLink"],
+    ["#trademarkNotice", "trademark"],
+  ];
+
+  staticText.forEach(([selector, key]) => {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = t(key);
+  });
+}
 
 async function analyzeFile(file) {
   resetUi();
 
   if (!/^image\/(png|jpeg)$/.test(file.type)) {
-    setMessage("PNG または JPG を選択してください。", "error");
+    setMessage(t("selectPngJpg"), "error");
     return;
   }
 
   try {
-    setMessage("画像を読み込んでいます。", "busy");
+    setMessage(t("loadingImage"), "busy");
     await nextFrame();
     const bitmap = await loadBitmap(file);
     const source = drawInputImage(bitmap);
     const sourceImage = source.ctx.getImageData(0, 0, source.canvas.width, source.canvas.height);
 
-    setMessage("QR の範囲を検出しています。", "busy");
+    setMessage(t("detectingQr"), "busy");
     await nextFrame();
     const detection = await findQrInImage(source.canvas, sourceImage);
     const detected = detection?.code ?? null;
 
     if (!detected) {
-      throw new Error("QR を検出または読み取りできませんでした。破損、低解像度、強い反射、または範囲外の可能性があります。");
+      throw new Error(t("detectFailed"));
     }
 
     const size = 17 + detected.version * 4;
     const expectedSize = 21 + 4 * (detected.version - 1);
     if (size !== expectedSize) {
-      throw new Error("QR バージョンからセル数を算出できませんでした。");
+      throw new Error(t("versionCellFailed"));
     }
 
     const corners = detection.location;
     drawSourceOverlay(source.preview.ctx, source.preview.canvas, mapCornersToPreview(corners, source.preview));
 
-    setMessage("セル構成を抽出しています。", "busy");
+    setMessage(t("extractingCells"), "busy");
     await nextFrame();
     const transform = squareToQuadrilateralTransform(
       corners.topLeftCorner,
@@ -201,7 +356,7 @@ async function analyzeFile(file) {
     const sample = sampleWarpedModules(warpedImageData, size);
     const format = decodeFormatInformation(sample.modules);
     if (!format) {
-      throw new Error("フォーマット情報を復元できませんでした。破損またはセル判定の失敗として扱います。");
+      throw new Error(t("formatFailed"));
     }
 
     renderComparisonCanvas(warpedImageData, sample.modules);
@@ -211,6 +366,8 @@ async function analyzeFile(file) {
     latestResult = {
       detected,
       sourceFileName: file.name,
+      sourceCanvas: source.canvas,
+      sourceCorners: corners,
       warpedImageData,
       content: detected.data,
       version: detected.version,
@@ -231,11 +388,9 @@ async function analyzeFile(file) {
       return;
     }
 
-    const completeMessage = detection.notice
-      ? `完了しました。${detection.notice}`
-      : "完了しました。抽出 matrix は jsQR のエラー訂正後デコードで再確認済みです。";
+    const completeMessage = detection.notice ? t("doneWithNotice", { notice: detection.notice }) : t("doneVerified");
     const warningText = [source.warning, detection.notice].filter(Boolean).join(" ");
-    setMessage(source.warning ? `完了しました。ただし ${warningText}` : completeMessage, source.warning ? "warn" : "ok");
+    setMessage(source.warning ? t("doneWithWarning", { warningText }) : completeMessage, source.warning ? "warn" : "ok");
     setExportButtonsEnabled(true);
   } catch (error) {
     latestResult = null;
@@ -274,7 +429,7 @@ async function loadBitmap(file) {
     const url = URL.createObjectURL(file);
     const timeout = window.setTimeout(() => {
       URL.revokeObjectURL(url);
-      reject(new Error("画像の読み込みが完了しませんでした。別の JPG/PNG に書き出してから再試行してください。"));
+      reject(new Error(t("imageLoadTimeout")));
     }, 10000);
 
     image.decoding = "async";
@@ -286,7 +441,7 @@ async function loadBitmap(file) {
     image.onerror = () => {
       window.clearTimeout(timeout);
       URL.revokeObjectURL(url);
-      reject(new Error("画像を読み込めませんでした。"));
+      reject(new Error(t("imageLoadFailed")));
     };
     image.src = url;
   });
@@ -309,7 +464,7 @@ function drawInputImage(bitmap) {
     canvas,
     ctx,
     preview,
-    warning: scale < 1 ? `入力画像が大きいため ${Math.round(scale * 100)}% に縮小して解析しました。` : "",
+    warning: scale < 1 ? t("inputScaledWarning", { percent: Math.round(scale * 100) }) : "",
   };
 }
 
@@ -434,7 +589,7 @@ async function decodeBarcodeDetectorCorners(sourceImage, sourceWidth, sourceHeig
       return {
         code,
         location: mapNormalizedLocation(code.location, transform, outputSize),
-        notice: "ブラウザの QR 検出を使って範囲を取得しました。",
+        notice: t("barcodeDetectorNotice"),
       };
     }
   }
@@ -516,7 +671,7 @@ async function stepDetection(context) {
   }
 
   if (performance.now() > context.deadline) {
-    throw new Error("QR の検出に時間がかかりすぎたため停止しました。もう少し QR が大きく写った画像、または QR 周辺を切り出した画像で再試行してください。");
+    throw new Error(t("detectionTimeout"));
   }
 }
 
@@ -525,22 +680,22 @@ function buildDetectionNotice(source, mode, scale) {
 
   const parts = [];
   if (source === "dark-region") {
-    parts.push("QR らしい範囲を切り出し");
+    parts.push(t("detectionNoticeDarkRegion"));
   } else if (source === "grid") {
-    parts.push("複数の候補範囲から");
+    parts.push(t("detectionNoticeGrid"));
   }
 
   if (mode === "contrast") {
-    parts.push("コントラスト補正を使って");
+    parts.push(t("detectionNoticeContrast"));
   } else if (mode === "binary") {
-    parts.push("二値化した画像で");
+    parts.push(t("detectionNoticeBinary"));
   } else if (mode === "gray") {
-    parts.push("グレースケール画像で");
+    parts.push(t("detectionNoticeGray"));
   } else if (scale !== 1) {
-    parts.push("画像サイズを調整して");
+    parts.push(t("detectionNoticeScaled"));
   }
 
-  return parts.length > 0 ? `${parts.join("、")}検出しました。` : "";
+  return parts.length > 0 ? t("detectionNoticeComplete", { parts }) : "";
 }
 
 function detectionScales(candidate) {
@@ -1290,13 +1445,13 @@ function verifyExtractedMatrix(canvas, original) {
   if (!decoded) {
     return {
       ok: false,
-      reason: "抽出した matrix を jsQR で再読み取りできませんでした。破損またはセル判定の失敗として扱います。",
+      reason: t("extractedMatrixUnreadableReason"),
       originalData: original.data,
       originalVersion: original.version,
       extractedData: null,
       extractedVersion: null,
       decodedMatches: false,
-      differences: ["抽出後QRは読み取り不可"],
+      differences: [t("extractedQrUnreadable")],
     };
   }
 
@@ -1312,7 +1467,7 @@ function verifyExtractedMatrix(canvas, original) {
   if (differences.length > 0) {
     return {
       ok: false,
-      reason: "元画像と抽出 matrix の jsQR エラー訂正後デコード値が一致しません。",
+      reason: t("decodedMismatchReason"),
       originalData: original.data,
       originalVersion: original.version,
       extractedData: decoded.data,
@@ -1437,7 +1592,7 @@ function renderMetadata(file, detected, sample, format, warning, verification) {
 }
 
 function renderVerification(verification) {
-  els.metaReadCheck.textContent = verification.ok ? "一致（エラー訂正後）" : "不一致（エラー訂正後）";
+  els.metaReadCheck.textContent = verification.ok ? t("verifyMatch") : t("verifyMismatch");
   els.metaReadCheck.dataset.state = verification.ok ? "ok" : "error";
   els.metaReadDifference.textContent = buildReadDifferenceText(verification);
   els.metaReadDifference.title = buildReadDifferenceTitle(verification);
@@ -1445,11 +1600,11 @@ function renderVerification(verification) {
 
 function buildReadDifferenceText(verification) {
   if (verification.ok) {
-    return `jsQRのエラー訂正後デコード値が一致。Version ${verification.originalVersion}`;
+    return t("readDifferenceMatch", { version: verification.originalVersion });
   }
 
   if (!verification.extractedData) {
-    return `抽出QRはjsQRで読み取り不可。検出QR: Version ${verification.originalVersion}`;
+    return t("readDifferenceUnreadable", { version: verification.originalVersion });
   }
 
   const parts = verification.differences.map((key) => {
@@ -1462,7 +1617,7 @@ function buildReadDifferenceText(verification) {
 }
 
 function buildReadDifferenceTitle(verification) {
-  const extracted = verification.extractedData ?? "(読み取り不可)";
+  const extracted = verification.extractedData ?? t("unreadable");
   return [
     "decode: jsQR error-corrected result",
     `detected version: ${verification.originalVersion}`,
@@ -1473,9 +1628,18 @@ function buildReadDifferenceTitle(verification) {
 }
 
 function setExportButtonsEnabled(enabled) {
-  [els.downloadPngDtp, els.downloadPngOffice, els.downloadSvg, els.downloadEps].forEach((button) => {
+  [els.downloadPreviewProof, els.downloadPngDtp, els.downloadPngOffice, els.downloadSvg, els.downloadEps].forEach((button) => {
     if (button) button.disabled = !enabled;
   });
+}
+
+async function savePreviewProof() {
+  const blob = await generatePreviewProofPngBlob(latestResult);
+  await saveBlobAs(
+    blob,
+    buildExportFilename(latestResult, "proof", "png"),
+    [{ description: "PNG image", accept: { "image/png": [".png"] } }],
+  );
 }
 
 function generateMatrixSvg(modules) {
@@ -1759,7 +1923,7 @@ function finishComparisonDrag(event) {
   resetComparisonDrag();
   if (changedCells <= 0) return;
 
-  refreshEditedMatrix(`${changedCells}セルを${value ? "置きました" : "外しました"}。`);
+  refreshEditedMatrix(t("editAction", { count: changedCells, value }));
 }
 
 function resetComparisonDrag() {
@@ -1829,9 +1993,7 @@ function refreshEditedMatrix(actionText) {
   latestResult.verification = verification;
   renderVerification(verification);
   setMessage(
-    verification.ok
-      ? `${actionText} jsQRのエラー訂正後デコード値は一致しています。`
-      : `${actionText} jsQRのエラー訂正後デコード値に差違があります。`,
+    verification.ok ? t("editOk", { actionText }) : t("editMismatch", { actionText }),
     verification.ok ? "ok" : "warn",
   );
 }
@@ -1849,13 +2011,13 @@ function drawImageData(canvas, imageData) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-function drawModuleOverlay(canvas, modules) {
-  if (!overlayEnabled) return;
+function drawModuleOverlay(canvas, modules, options = {}) {
+  if (!overlayEnabled && !options.forceVisible) return;
 
   const ctx = canvas.getContext("2d");
   const moduleWidth = canvas.width / modules.length;
   const moduleHeight = canvas.height / modules.length;
-  const opacity = getOverlayOpacity();
+  const opacity = options.opacity ?? getOverlayOpacity();
 
   ctx.save();
   ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
@@ -1866,6 +2028,104 @@ function drawModuleOverlay(canvas, modules) {
     });
   });
   ctx.restore();
+}
+
+async function generatePreviewProofPngBlob(result) {
+  const size = getPreviewProofSize();
+  const gap = Math.max(16, Math.round(size * 0.028));
+  const labelHeight = Math.max(36, Math.round(size * 0.052));
+  const sourceProof = renderSourceProofImage(result, size);
+  const canvasWidth = sourceProof.width + gap + size;
+  const canvasHeight = size + labelHeight;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  drawProofLabel(ctx, t("proofSourceTitle"), 0, 0, sourceProof.width, labelHeight);
+  drawProofLabel(ctx, t("proofProcessedTitle"), sourceProof.width + gap, 0, size, labelHeight);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceProof, 0, labelHeight);
+  ctx.drawImage(renderPreviewProofImage(result, size), sourceProof.width + gap, labelHeight);
+
+  return canvasToPngBlob(canvas);
+}
+
+function renderSourceProofImage(result, height) {
+  const scale = height / result.sourceCanvas.height;
+  const width = Math.max(1, Math.round(result.sourceCanvas.width * scale));
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = width;
+  canvas.height = height;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(result.sourceCanvas, 0, 0, width, height);
+  drawSourceOverlay(ctx, canvas, scaleCorners(result.sourceCorners, scale, scale));
+  return canvas;
+}
+
+function scaleCorners(corners, scaleX, scaleY) {
+  const scalePoint = (point) => ({
+    x: point.x * scaleX,
+    y: point.y * scaleY,
+  });
+
+  return {
+    topLeftCorner: scalePoint(corners.topLeftCorner),
+    topRightCorner: scalePoint(corners.topRightCorner),
+    bottomRightCorner: scalePoint(corners.bottomRightCorner),
+    bottomLeftCorner: scalePoint(corners.bottomLeftCorner),
+  };
+}
+
+function renderPreviewProofImage(result, size) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = size;
+  canvas.height = size;
+
+  const sourceCanvas = document.createElement("canvas");
+  const sourceCtx = sourceCanvas.getContext("2d");
+  sourceCanvas.width = result.warpedImageData.width;
+  sourceCanvas.height = result.warpedImageData.height;
+  sourceCtx.putImageData(result.warpedImageData, 0, 0);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, 0, 0, size, size);
+  drawModuleOverlay(canvas, result.modules, { forceVisible: true, opacity: 0.5 });
+  drawModuleGrid(canvas, result.modules.length);
+  return canvas;
+}
+
+function drawProofLabel(ctx, text, x, y, width, height) {
+  const fontSize = Math.max(14, Math.min(22, Math.round(height * 0.48)));
+  ctx.save();
+  ctx.fillStyle = "#171717";
+  ctx.font = `700 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + width / 2, y + height / 2);
+  ctx.restore();
+}
+
+function getPreviewProofSize() {
+  const rect = els.warpedCanvas.getBoundingClientRect();
+  const displaySize = Math.round(Math.min(rect.width, rect.height));
+  if (Number.isFinite(displaySize) && displaySize > 0) return displaySize;
+  return Math.max(1, els.warpedCanvas.width || els.warpedCanvas.height || 1);
+}
+
+function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error(t("previewPngExportFailed")));
+    }, "image/png");
+  });
 }
 
 function getOverlayOpacity() {
@@ -1881,7 +2141,8 @@ function updateOverlayOpacityLabel() {
 function updateOverlayToggle() {
   els.overlayToggle.textContent = overlayEnabled ? "●" : "○";
   els.overlayToggle.setAttribute("aria-pressed", String(overlayEnabled));
-  els.overlayToggle.setAttribute("aria-label", overlayEnabled ? "オーバーレイを非表示にする" : "オーバーレイを表示する");
+  els.overlayToggle.setAttribute("aria-label", overlayEnabled ? t("overlayHide") : t("overlayShow"));
+  els.overlayToggle.setAttribute("title", t("overlayToggleTitle"));
   els.warpedCanvas.classList.toggle("is-edit-disabled", !overlayEnabled);
   els.warpedCanvas.setAttribute("aria-disabled", String(!overlayEnabled));
 }

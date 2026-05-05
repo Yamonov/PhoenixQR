@@ -228,6 +228,24 @@ button:disabled {
   color: var(--accent-strong);
 }
 
+.panel-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0ea;
+  font-size: 12px;
+}
+
+.panel-links a {
+  color: var(--text-muted);
+  text-underline-offset: 2px;
+}
+
+.panel-links a:hover {
+  color: #374036;
+}
+
 .preview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -257,6 +275,15 @@ button:disabled {
 .preview-card header span {
   color: var(--text-muted);
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.header-action {
+  min-height: 32px;
+  padding: 4px 10px;
+  color: #374036;
+  font-size: 12px;
+  line-height: 1.2;
   white-space: nowrap;
 }
 

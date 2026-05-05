@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PhoenixQR</title>
-    <script type="module" crossorigin src="./assets/index-vusqo_FO.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Do3wU5EL.css">
+    <script type="module" crossorigin src="./assets/index-BgQKP7XJ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-C_nxLDBc.css">
   </head>
   <body>
     <main id="app" class="shell">
       <section class="topbar" aria-label="Application header">
         <div class="brand-line">
           <h1>PhoenixQR</h1>
-          <p>セル構成の全く同じQRコードを生成</p>
+          <p id="brandTagline">セル構成の全く同じQRコードを生成</p>
         </div>
       </section>
 
@@ -65,14 +65,17 @@
             </div>
           </dl>
 
+          <div class="panel-links">
+            <a id="donateLink" href="https://donate.stripe.com/eVqcN75Gm8vX6nHfDj77O00" target="_blank" rel="noreferrer">寄付する</a>
+          </div>
         </aside>
 
         <section class="preview-grid">
           <article class="preview-card comparison-card">
             <header>
-              <h2>セルをクリックやドラッグで修正できます</h2>
+              <h2 id="comparisonTitle">セルをクリックやドラッグで修正できます</h2>
               <div class="overlay-control">
-                <label for="overlayOpacity">不透明度：</label>
+                <label id="overlayOpacityLabel" for="overlayOpacity">不透明度：</label>
                 <input id="overlayOpacity" type="range" min="10" max="100" step="5" value="50" />
                 <output id="overlayOpacityValue" for="overlayOpacity">50%</output>
                 <button id="overlayToggle" class="overlay-toggle" type="button" aria-pressed="true" aria-label="オーバーレイを非表示にする" title="オーバーレイの表示切替">●</button>
@@ -83,7 +86,8 @@
 
           <article class="preview-card export-card">
             <header>
-              <h2>修正したQRを書き出し</h2>
+              <h2 id="exportTitle">修正したQRを書き出し</h2>
+              <button id="downloadPreviewProof" class="header-action" type="button" disabled>プレビュー状態をPNGとして書き出し（証明用）</button>
             </header>
             <div class="export-panel">
               <button id="downloadPngDtp" type="button" disabled>
@@ -112,7 +116,7 @@
       <footer class="site-footer">
         <a href="https://github.com/Yamonov/PhoenixQR" target="_blank" rel="noreferrer">GitHub</a>
         <span id="libraryStatus">jsQR ready</span>
-        <span>QRコードは株式会社デンソーウェーブの登録商標です</span>
+        <span id="trademarkNotice">QRコードは株式会社デンソーウェーブの登録商標です</span>
       </footer>
     </main>
   </body>
