@@ -15,26 +15,33 @@
 - SVG: 4セル分のアキ付き
 - EPS: 外周パス化、2値、プレビューなし
 
-## Local Development
+## ローカルで実行する
+
+このプロジェクトは、`docs/` 内に実行に必要なJavaScript、CSS、ライセンス表示を含めています。
+外部CDNや外部APIは使っていないため、ダウンロードした一式だけで動作します。
+
+1. GitHubの `Code` → `Download ZIP` からプロジェクトをダウンロードします。
+2. ZIPを展開します。
+3. ターミナルで展開したフォルダの `docs/` に移動します。
+
+```bash
+cd PhoenixQR-main/docs
+python3 -m http.server 8000
+```
+
+4. ブラウザで `http://127.0.0.1:8000/` を開きます。
+5. PNGまたはJPG画像をドロップして使用します。
+
+`index.html` を直接ダブルクリックして開くと、ブラウザのセキュリティ制約でJavaScriptが正しく動かない場合があります。上記のようにローカルWebサーバ経由で開いてください。
+
+ソースを変更してから実行する場合は、Node.js環境で以下を実行します。
 
 ```bash
 npm install
-npm run dev
-```
-
-ブラウザで `http://127.0.0.1:5173/` を開き、PNGまたはJPGをドロップしてください。
-
-## GitHub Pages
-
-公開用ファイルは `docs/` に生成します。
-
-```bash
 npm run build
+cd docs
+python3 -m http.server 8000
 ```
-
-GitHub Pagesでは、公開元を `main` branch の `/docs` に設定してください。
-
-`docs/` には実行に必要なJavaScript、CSS、サードパーティライセンス表示が含まれます。外部CDNや外部APIは使っていません。
 
 ## Third-Party License
 
