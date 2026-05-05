@@ -47,6 +47,13 @@ const els = {
 
 let latestResult = null;
 let overlayEnabled = true;
+const dragEdit = {
+  active: false,
+  pointerId: null,
+  value: false,
+  changedCells: 0,
+  lastCell: null,
+};
 
 els.dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -107,8 +114,20 @@ els.downloadEps.addEventListener("click", () => {
   );
 });
 
-els.warpedCanvas.addEventListener("click", (event) => {
-  handleComparisonClick(event);
+els.warpedCanvas.addEventListener("pointerdown", (event) => {
+  beginComparisonDrag(event);
+});
+
+els.warpedCanvas.addEventListener("pointermove", (event) => {
+  continueComparisonDrag(event);
+});
+
+els.warpedCanvas.addEventListener("pointerup", (event) => {
+  finishComparisonDrag(event);
+});
+
+els.warpedCanvas.addEventListener("pointercancel", (event) => {
+  finishComparisonDrag(event);
 });
 
 els.overlayOpacity.addEventListener("input", () => {
@@ -120,6 +139,12 @@ els.overlayOpacity.addEventListener("input", () => {
 
 els.overlayToggle.addEventListener("click", () => {
   overlayEnabled = !overlayEnabled;
+  if (!overlayEnabled) {
+    if (dragEdit.active && dragEdit.pointerId !== null) {
+      els.warpedCanvas.releasePointerCapture?.(dragEdit.pointerId);
+    }
+    resetComparisonDrag();
+  }
   updateOverlayToggle();
   if (latestResult?.warpedImageData && latestResult?.modules) {
     renderComparisonCanvas(latestResult.warpedImageData, latestResult.modules);
@@ -220,6 +245,7 @@ async function analyzeFile(file) {
 
 function resetUi() {
   latestResult = null;
+  resetComparisonDrag();
   setExportButtonsEnabled(false);
   resetSourcePreview();
   [els.warpedCanvas, els.matrixCanvas].forEach((canvas) => {
@@ -1695,19 +1721,97 @@ function pngChunk(type, data) {
   return output;
 }
 
-function handleComparisonClick(event) {
-  if (!latestResult?.modules || !latestResult?.warpedImageData) return;
+function beginComparisonDrag(event) {
+  if (!overlayEnabled || event.button !== 0 || !latestResult?.modules || !latestResult?.warpedImageData) return;
+  const cell = cellFromComparisonPointer(event);
+  if (!cell) return;
 
+  event.preventDefault();
+  els.warpedCanvas.setPointerCapture?.(event.pointerId);
+  dragEdit.active = true;
+  dragEdit.pointerId = event.pointerId;
+  dragEdit.value = !latestResult.modules[cell.y][cell.x];
+  dragEdit.changedCells = 0;
+  dragEdit.lastCell = null;
+  paintComparisonDragTo(cell);
+}
+
+function continueComparisonDrag(event) {
+  if (!dragEdit.active || event.pointerId !== dragEdit.pointerId) return;
+  if (!overlayEnabled) {
+    resetComparisonDrag();
+    return;
+  }
+  const cell = cellFromComparisonPointer(event);
+  if (!cell) return;
+
+  event.preventDefault();
+  paintComparisonDragTo(cell);
+}
+
+function finishComparisonDrag(event) {
+  if (!dragEdit.active || event.pointerId !== dragEdit.pointerId) return;
+  event.preventDefault();
+  els.warpedCanvas.releasePointerCapture?.(event.pointerId);
+
+  const changedCells = dragEdit.changedCells;
+  const value = dragEdit.value;
+  resetComparisonDrag();
+  if (changedCells <= 0) return;
+
+  refreshEditedMatrix(`${changedCells}セルを${value ? "置きました" : "外しました"}。`);
+}
+
+function resetComparisonDrag() {
+  dragEdit.active = false;
+  dragEdit.pointerId = null;
+  dragEdit.value = false;
+  dragEdit.changedCells = 0;
+  dragEdit.lastCell = null;
+}
+
+function cellFromComparisonPointer(event) {
   const rect = els.warpedCanvas.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
+  if (rect.width <= 0 || rect.height <= 0) return null;
 
   const size = latestResult.modules.length;
   const x = Math.floor(((event.clientX - rect.left) / rect.width) * size);
   const y = Math.floor(((event.clientY - rect.top) / rect.height) * size);
-  if (x < 0 || y < 0 || x >= size || y >= size) return;
+  if (x < 0 || y < 0 || x >= size || y >= size) return null;
 
-  latestResult.modules[y][x] = !latestResult.modules[y][x];
-  refreshEditedMatrix(`セル (${x + 1}, ${y + 1}) を${latestResult.modules[y][x] ? "置きました" : "外しました"}。`);
+  return { x, y };
+}
+
+function paintComparisonDragTo(cell) {
+  if (!latestResult?.modules || !latestResult?.warpedImageData) return;
+
+  const from = dragEdit.lastCell ?? cell;
+  for (const target of cellsBetween(from, cell)) {
+    paintComparisonCell(target.x, target.y, dragEdit.value);
+  }
+  dragEdit.lastCell = cell;
+  renderComparisonCanvas(latestResult.warpedImageData, latestResult.modules);
+}
+
+function cellsBetween(from, to) {
+  const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+  const cells = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const ratio = steps === 0 ? 0 : step / steps;
+    const x = Math.round(from.x + (to.x - from.x) * ratio);
+    const y = Math.round(from.y + (to.y - from.y) * ratio);
+    const previous = cells.at(-1);
+    if (!previous || previous.x !== x || previous.y !== y) {
+      cells.push({ x, y });
+    }
+  }
+  return cells;
+}
+
+function paintComparisonCell(x, y, value) {
+  if (latestResult.modules[y][x] === value) return;
+  latestResult.modules[y][x] = value;
+  dragEdit.changedCells += 1;
 }
 
 function refreshEditedMatrix(actionText) {
@@ -1778,6 +1882,8 @@ function updateOverlayToggle() {
   els.overlayToggle.textContent = overlayEnabled ? "●" : "○";
   els.overlayToggle.setAttribute("aria-pressed", String(overlayEnabled));
   els.overlayToggle.setAttribute("aria-label", overlayEnabled ? "オーバーレイを非表示にする" : "オーバーレイを表示する");
+  els.warpedCanvas.classList.toggle("is-edit-disabled", !overlayEnabled);
+  els.warpedCanvas.setAttribute("aria-disabled", String(!overlayEnabled));
 }
 
 function drawModuleGrid(canvas, size) {
