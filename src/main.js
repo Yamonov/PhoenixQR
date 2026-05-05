@@ -5,9 +5,11 @@ const MAX_INPUT_PIXELS = 20_000_000;
 const SOURCE_PREVIEW_SIZE = 304;
 const WARPED_MODULE_PIXELS = 12;
 const MATRIX_MODULE_PIXELS = 12;
-const PNG_DTP_MODULE_PIXELS = 1;
 const PNG_OFFICE_MODULE_PIXELS = 20;
-const EPS_MODULE_POINTS = 10;
+const PDF_POINTS_PER_MM = 72 / 25.4;
+const MIN_EXPORT_SIZE_MM = 12;
+const DEFAULT_EXPORT_CELL_SIZE_MM = 0.25;
+const EXPORT_CELL_SIZE_OPTIONS = [0.25, 0.3, 0.35];
 const QUIET_ZONE_MODULES = 4;
 const AMBIGUOUS_MARGIN = 12;
 const LOCAL_WINDOW_RADIUS = 2;
@@ -31,9 +33,15 @@ const TRANSLATIONS = {
     overlayToggleTitle: "オーバーレイの表示切替",
     exportTitle: "修正したQRを書き出し",
     proofButton: "プレビュー状態をPNGとして書き出し（証明用）",
-    pngDtpSub: "DTP向け1セル1pxグレースケール",
-    pngOfficeSub: "Photoshop/Office等向け1セル20px",
-    epsSub: "２値",
+    tiffDtpSub: "DTP向け1セル1px/1bit\nai/idで色付け可能",
+    pngOfficeSub: "Canva/Office等向け\n1セル20px グレー",
+    pdfSub: "DeviceGray/ベクター",
+    exportCellSizeLabel: "セルサイズ：",
+    exportCellSizeHighQuality: "0.25mm（高品質印刷）",
+    exportCellSizePrinter: "0.3mm（プリンタ等）",
+    exportCellSizeLowQuality: "0.35mm（低品質印刷）",
+    exportCellSizeNote: "※最小12mm（マージン含む）",
+    epsSub: "2値/ベクター",
     donateLink: "寄付する",
     trademark: "QRコードは株式会社デンソーウェーブの登録商標です",
     selectPngJpg: "PNG または JPG を選択してください。",
@@ -85,9 +93,15 @@ const TRANSLATIONS = {
     overlayToggleTitle: "Toggle overlay",
     exportTitle: "Export the edited QR",
     proofButton: "Export preview state as PNG (proof)",
-    pngDtpSub: "For DTP: 1 cell = 1 px grayscale",
-    pngOfficeSub: "For Photoshop/Office: 1 cell = 20 px",
-    epsSub: "1-bit",
+    tiffDtpSub: "For DTP: 1 cell = 1 px/1-bit\nColor editable in Ai/Id",
+    pngOfficeSub: "For Canva/Office\n1 cell = 20 px gray",
+    pdfSub: "DeviceGray/vector",
+    exportCellSizeLabel: "Cell size:",
+    exportCellSizeHighQuality: "0.25 mm (high-quality print)",
+    exportCellSizePrinter: "0.3 mm (printers)",
+    exportCellSizeLowQuality: "0.35 mm (low-quality print)",
+    exportCellSizeNote: "Minimum 12 mm (including margin)",
+    epsSub: "1-bit/vector",
     donateLink: "Donate",
     trademark: "QR Code is a registered trademark of DENSO WAVE INCORPORATED.",
     selectPngJpg: "Select a PNG or JPG file.",
@@ -155,9 +169,11 @@ const els = {
   overlayToggle: document.querySelector("#overlayToggle"),
   matrixSize: document.querySelector("#matrixSize"),
   downloadPreviewProof: document.querySelector("#downloadPreviewProof"),
-  downloadPngDtp: document.querySelector("#downloadPngDtp"),
+  downloadTiffDtp: document.querySelector("#downloadTiffDtp"),
   downloadPngOffice: document.querySelector("#downloadPngOffice"),
   downloadSvg: document.querySelector("#downloadSvg"),
+  downloadPdf: document.querySelector("#downloadPdf"),
+  exportCellSize: document.querySelector("#exportCellSize"),
   downloadEps: document.querySelector("#downloadEps"),
   metaContent: document.querySelector("#metaContent"),
   metaVersion: document.querySelector("#metaVersion"),
@@ -201,12 +217,12 @@ els.fileInput.addEventListener("change", (event) => {
   if (file) void analyzeFile(file);
 });
 
-els.downloadPngDtp.addEventListener("click", () => {
+els.downloadTiffDtp.addEventListener("click", () => {
   if (!latestResult) return;
   void saveBlobAs(
-    generateMatrixPngBlob(latestResult.modules, PNG_DTP_MODULE_PIXELS),
-    buildExportFilename(latestResult, "dtp", "png"),
-    [{ description: "PNG image", accept: { "image/png": [".png"] } }],
+    generateMatrixTiffBlob(latestResult.modules, getExportSizing(latestResult.modules)),
+    buildExportFilename(latestResult, "dtp", "tif"),
+    [{ description: "1-bit TIFF image", accept: { "image/tiff": [".tif", ".tiff"] } }],
   );
 });
 
@@ -222,17 +238,26 @@ els.downloadPngOffice.addEventListener("click", () => {
 els.downloadSvg.addEventListener("click", () => {
   if (!latestResult) return;
   void saveTextAs(
-    generateMatrixSvg(latestResult.modules),
+    generateMatrixSvg(latestResult.modules, getExportSizing(latestResult.modules)),
     buildExportFilename(latestResult, "", "svg"),
     "image/svg+xml",
     [{ description: "SVG image", accept: { "image/svg+xml": [".svg"] } }],
   );
 });
 
+els.downloadPdf.addEventListener("click", () => {
+  if (!latestResult) return;
+  void saveBlobAs(
+    generateMatrixPdfBlob(latestResult.modules, getExportSizing(latestResult.modules)),
+    buildExportFilename(latestResult, "", "pdf"),
+    [{ description: "PDF document", accept: { "application/pdf": [".pdf"] } }],
+  );
+});
+
 els.downloadEps.addEventListener("click", () => {
   if (!latestResult) return;
   void saveTextAs(
-    generateMatrixEpsPostScript(latestResult.modules),
+    generateMatrixEpsPostScript(latestResult.modules, getExportSizing(latestResult.modules)),
     buildExportFilename(latestResult, "", "eps"),
     "application/postscript",
     [{ description: "EPS file", accept: { "application/postscript": [".eps"] } }],
@@ -296,8 +321,11 @@ function applyLocale() {
     ["#overlayOpacityLabel", "opacityLabel"],
     ["#exportTitle", "exportTitle"],
     ["#downloadPreviewProof", "proofButton"],
-    ["#downloadPngDtp .button-sub", "pngDtpSub"],
+    ["#downloadTiffDtp .button-sub", "tiffDtpSub"],
     ["#downloadPngOffice .button-sub", "pngOfficeSub"],
+    ["#downloadPdf .button-sub", "pdfSub"],
+    ["#exportCellSizeLabel", "exportCellSizeLabel"],
+    ["#exportCellSizeNote", "exportCellSizeNote"],
     ["#downloadEps .button-sub", "epsSub"],
     ["#donateLink", "donateLink"],
     ["#trademarkNotice", "trademark"],
@@ -307,6 +335,14 @@ function applyLocale() {
     const element = document.querySelector(selector);
     if (element) element.textContent = t(key);
   });
+  setSelectOptionText(els.exportCellSize, "0.25", t("exportCellSizeHighQuality"));
+  setSelectOptionText(els.exportCellSize, "0.3", t("exportCellSizePrinter"));
+  setSelectOptionText(els.exportCellSize, "0.35", t("exportCellSizeLowQuality"));
+}
+
+function setSelectOptionText(select, value, text) {
+  const option = select?.querySelector(`option[value="${value}"]`);
+  if (option) option.textContent = text;
 }
 
 async function analyzeFile(file) {
@@ -1628,7 +1664,7 @@ function buildReadDifferenceTitle(verification) {
 }
 
 function setExportButtonsEnabled(enabled) {
-  [els.downloadPreviewProof, els.downloadPngDtp, els.downloadPngOffice, els.downloadSvg, els.downloadEps].forEach((button) => {
+  [els.downloadPreviewProof, els.downloadTiffDtp, els.downloadPngOffice, els.downloadSvg, els.downloadPdf, els.downloadEps].forEach((button) => {
     if (button) button.disabled = !enabled;
   });
 }
@@ -1642,9 +1678,9 @@ async function savePreviewProof() {
   );
 }
 
-function generateMatrixSvg(modules) {
-  const size = modules.length;
-  const totalModules = size + QUIET_ZONE_MODULES * 2;
+function generateMatrixSvg(modules, sizing) {
+  const totalModules = sizing.totalModules;
+  const outputSizeMm = formatMm(sizing.outputSizeMm);
   const rects = [];
 
   modules.forEach((row, y) => {
@@ -1656,7 +1692,7 @@ function generateMatrixSvg(modules) {
 
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalModules} ${totalModules}" shape-rendering="crispEdges">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${outputSizeMm}mm" height="${outputSizeMm}mm" viewBox="0 0 ${totalModules} ${totalModules}" shape-rendering="crispEdges">`,
     `<rect width="${totalModules}" height="${totalModules}" fill="#fff"/>`,
     `<g fill="#000">`,
     rects.join("\n"),
@@ -1666,15 +1702,16 @@ function generateMatrixSvg(modules) {
   ].join("\n");
 }
 
-function generateMatrixEpsPostScript(modules) {
-  const size = modules.length;
-  const totalModules = size + QUIET_ZONE_MODULES * 2;
-  const totalPoints = totalModules * EPS_MODULE_POINTS;
+function generateMatrixEpsPostScript(modules, sizing) {
+  const totalModules = sizing.totalModules;
+  const modulePoints = sizing.moduleSizeMm * PDF_POINTS_PER_MM;
+  const totalPoints = sizing.outputSizeMm * PDF_POINTS_PER_MM;
+  const boundingBoxSize = Math.ceil(totalPoints);
   const paths = traceMatrixContours(modules).map((contour) => {
     const [first, ...rest] = contour;
     const commands = [
-      `${first.x * EPS_MODULE_POINTS} ${(totalModules - first.y) * EPS_MODULE_POINTS} moveto`,
-      ...rest.map((point) => `${point.x * EPS_MODULE_POINTS} ${(totalModules - point.y) * EPS_MODULE_POINTS} lineto`),
+      `${formatPdfNumber(first.x * modulePoints)} ${formatPdfNumber((totalModules - first.y) * modulePoints)} moveto`,
+      ...rest.map((point) => `${formatPdfNumber(point.x * modulePoints)} ${formatPdfNumber((totalModules - point.y) * modulePoints)} lineto`),
       `closepath`,
     ];
     return commands.join("\n");
@@ -1683,21 +1720,127 @@ function generateMatrixEpsPostScript(modules) {
   return [
     `%!PS-Adobe-3.0 EPSF-3.0`,
     `%%Creator: PhoenixQR`,
-    `%%BoundingBox: 0 0 ${totalPoints} ${totalPoints}`,
+    `%%BoundingBox: 0 0 ${boundingBoxSize} ${boundingBoxSize}`,
+    `%%HiResBoundingBox: 0 0 ${formatPdfNumber(totalPoints)} ${formatPdfNumber(totalPoints)}`,
     `%%DocumentData: Clean7Bit`,
     `%%LanguageLevel: 2`,
     `%%Pages: 1`,
     `%%EndComments`,
-    `1 setgray`,
-    `0 0 ${totalPoints} ${totalPoints} rectfill`,
-    `0 setgray`,
     `newpath`,
+    `0 0 ${formatPdfNumber(totalPoints)} ${formatPdfNumber(totalPoints)} rectclip`,
+    `newpath`,
+    `0 setgray`,
     ...paths,
     `eofill`,
     `showpage`,
     `%%EOF`,
     "",
   ].join("\n");
+}
+
+function generateMatrixPdfBlob(modules, sizing) {
+  const modulePoints = sizing.moduleSizeMm * PDF_POINTS_PER_MM;
+  const totalPoints = sizing.outputSizeMm * PDF_POINTS_PER_MM;
+  const content = generateMatrixPdfContent(modules, sizing.totalModules, modulePoints);
+  return new Blob([buildPdfDocument(totalPoints, totalPoints, content)], { type: "application/pdf" });
+}
+
+function generateMatrixPdfContent(modules, totalModules, modulePoints) {
+  const pathCommands = traceMatrixContours(modules).flatMap((contour) => {
+    const [first, ...rest] = contour;
+    return [
+      `${formatPdfNumber(first.x * modulePoints)} ${formatPdfNumber((totalModules - first.y) * modulePoints)} m`,
+      ...rest.map((point) => `${formatPdfNumber(point.x * modulePoints)} ${formatPdfNumber((totalModules - point.y) * modulePoints)} l`),
+      "h",
+    ];
+  });
+
+  return [
+    "q",
+    "0 g",
+    ...pathCommands,
+    "f*",
+    "Q",
+  ].join("\n");
+}
+
+function buildPdfDocument(width, height, content) {
+  const encoder = new TextEncoder();
+  const streamContent = `${content}\n`;
+  const streamLength = encoder.encode(streamContent).length;
+  const pdfDate = formatPdfDate(new Date());
+  const pageBox = `[0 0 ${formatPdfNumber(width)} ${formatPdfNumber(height)}]`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    `<< /Type /Page /Parent 2 0 R /MediaBox ${pageBox} /TrimBox ${pageBox} /Resources << >> /Contents 4 0 R >>`,
+    `<< /Length ${streamLength} >>\nstream\n${streamContent}endstream`,
+    `<< /Title (PhoenixQR) /Creator (PhoenixQR) /Producer (PhoenixQR) /CreationDate (${pdfDate}) >>`,
+  ];
+  const chunks = [];
+  const offsets = [];
+  let offset = 0;
+
+  const push = (chunk) => {
+    chunks.push(chunk);
+    offset += encoder.encode(chunk).length;
+  };
+
+  push("%PDF-1.4\n% PhoenixQR\n");
+  objects.forEach((body, index) => {
+    offsets[index + 1] = offset;
+    push(`${index + 1} 0 obj\n${body}\nendobj\n`);
+  });
+
+  const xrefOffset = offset;
+  push(`xref\n0 ${objects.length + 1}\n`);
+  push("0000000000 65535 f \n");
+  for (let i = 1; i <= objects.length; i += 1) {
+    push(`${String(offsets[i]).padStart(10, "0")} 00000 n \n`);
+  }
+  push(`trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
+
+  return encoder.encode(chunks.join(""));
+}
+
+function getExportSizing(modules) {
+  const totalModules = modules.length + QUIET_ZONE_MODULES * 2;
+  const selectedCellSizeMm = getExportCellSizeMm();
+  const outputSizeMm = Math.max(MIN_EXPORT_SIZE_MM, totalModules * selectedCellSizeMm);
+  return {
+    totalModules,
+    selectedCellSizeMm,
+    moduleSizeMm: outputSizeMm / totalModules,
+    outputSizeMm,
+  };
+}
+
+function getExportCellSizeMm() {
+  const value = Number(els.exportCellSize?.value);
+  return EXPORT_CELL_SIZE_OPTIONS.includes(value) ? value : DEFAULT_EXPORT_CELL_SIZE_MM;
+}
+
+function formatPdfDate(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return [
+    "D:",
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join("");
+}
+
+function formatPdfNumber(value) {
+  if (Number.isInteger(value)) return String(value);
+  return String(Number(value.toFixed(3)));
+}
+
+function formatMm(value) {
+  if (Number.isInteger(value)) return String(value);
+  return String(Number(value.toFixed(3)));
 }
 
 function traceMatrixContours(modules) {
@@ -1795,6 +1938,108 @@ function isDarkModuleAt(modules, x, y) {
     moduleX < modules.length &&
     modules[moduleY][moduleX]
   );
+}
+
+function generateMatrixTiffBlob(modules, sizing) {
+  const size = modules.length;
+  const totalModules = sizing.totalModules;
+  const width = totalModules;
+  const height = totalModules;
+  const rowBytes = Math.ceil(width / 8);
+  const imageByteCount = rowBytes * height;
+  const imageData = new Uint8Array(imageByteCount);
+
+  for (let y = 0; y < height; y += 1) {
+    const moduleY = y - QUIET_ZONE_MODULES;
+    for (let x = 0; x < width; x += 1) {
+      const moduleX = x - QUIET_ZONE_MODULES;
+      const isDark =
+        moduleX >= 0 &&
+        moduleY >= 0 &&
+        moduleX < size &&
+        moduleY < size &&
+        modules[moduleY][moduleX];
+      if (isDark) {
+        imageData[y * rowBytes + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      }
+    }
+  }
+
+  return new Blob([encodeOneBitTiff(width, height, imageData, sizing.outputSizeMm)], { type: "image/tiff" });
+}
+
+function encodeOneBitTiff(width, height, imageData, outputSizeMm) {
+  const softwareBytes = asciiBytes("PhoenixQR\0");
+  const dateTimeBytes = asciiBytes(`${formatTiffDate(new Date())}\0`);
+  const entryCount = 16;
+  const ifdOffset = 8;
+  const ifdSize = 2 + entryCount * 12 + 4;
+  const xResolutionOffset = ifdOffset + ifdSize;
+  const yResolutionOffset = xResolutionOffset + 8;
+  const softwareOffset = yResolutionOffset + 8;
+  const dateTimeOffset = softwareOffset + softwareBytes.length;
+  const imageOffset = dateTimeOffset + dateTimeBytes.length;
+  const output = new Uint8Array(imageOffset + imageData.length);
+  const view = new DataView(output.buffer);
+  const entries = [];
+
+  output[0] = 0x49;
+  output[1] = 0x49;
+  view.setUint16(2, 42, true);
+  view.setUint32(4, ifdOffset, true);
+  view.setUint16(ifdOffset, entryCount, true);
+
+  const addShortTag = (tag, value) => entries.push({ tag, type: 3, count: 1, value });
+  const addLongTag = (tag, value) => entries.push({ tag, type: 4, count: 1, value });
+  const addRationalTag = (tag, value) => entries.push({ tag, type: 5, count: 1, value });
+  const addAsciiTag = (tag, value, count) => entries.push({ tag, type: 2, count, value });
+
+  addLongTag(254, 0);
+  addShortTag(256, width);
+  addShortTag(257, height);
+  addShortTag(258, 1);
+  addShortTag(259, 1);
+  addShortTag(262, 0);
+  addLongTag(273, imageOffset);
+  addShortTag(274, 1);
+  addShortTag(277, 1);
+  addRationalTag(282, xResolutionOffset);
+  addRationalTag(283, yResolutionOffset);
+  addShortTag(278, height);
+  addLongTag(279, imageData.length);
+  addShortTag(296, 2);
+  addAsciiTag(305, softwareOffset, softwareBytes.length);
+  addAsciiTag(306, dateTimeOffset, dateTimeBytes.length);
+
+  entries.sort((a, b) => a.tag - b.tag).forEach((entry, index) => {
+    const offset = ifdOffset + 2 + index * 12;
+    view.setUint16(offset, entry.tag, true);
+    view.setUint16(offset + 2, entry.type, true);
+    view.setUint32(offset + 4, entry.count, true);
+    if (entry.type === 3) {
+      view.setUint16(offset + 8, entry.value, true);
+      view.setUint16(offset + 10, 0, true);
+    } else {
+      view.setUint32(offset + 8, entry.value, true);
+    }
+  });
+  view.setUint32(ifdOffset + 2 + entryCount * 12, 0, true);
+  const resolutionDenominator = 10000;
+  const resolutionNumerator = Math.round((width * 25.4 * resolutionDenominator) / outputSizeMm);
+  view.setUint32(xResolutionOffset, resolutionNumerator, true);
+  view.setUint32(xResolutionOffset + 4, resolutionDenominator, true);
+  view.setUint32(yResolutionOffset, resolutionNumerator, true);
+  view.setUint32(yResolutionOffset + 4, resolutionDenominator, true);
+  output.set(softwareBytes, softwareOffset);
+  output.set(dateTimeBytes, dateTimeOffset);
+  output.set(imageData, imageOffset);
+
+  return output;
+}
+
+function formatTiffDate(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}:${pad(date.getMonth() + 1)}:${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function generateMatrixPngBlob(modules, modulePixels) {

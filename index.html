@@ -84,24 +84,43 @@
 
           <article class="preview-card export-card">
             <header>
-              <h2 id="exportTitle">修正したQRを書き出し</h2>
+              <div class="export-header-main">
+                <h2 id="exportTitle">修正したQRを書き出し</h2>
+                <label class="export-cell-size-control" for="exportCellSize">
+                  <span id="exportCellSizeLabel">セルサイズ：</span>
+                  <select id="exportCellSize">
+                    <option value="0.25" selected>0.25mm（高品質印刷）</option>
+                    <option value="0.3">0.3mm（プリンタ等）</option>
+                    <option value="0.35">0.35mm（低品質印刷）</option>
+                  </select>
+                  <span id="exportCellSizeNote" class="export-cell-size-note">※最小12mm（マージン含む）</span>
+                </label>
+              </div>
               <button id="downloadPreviewProof" class="header-action" type="button" disabled>プレビュー状態をPNGとして書き出し（証明用）</button>
             </header>
             <div class="export-panel">
-              <button id="downloadPngDtp" type="button" disabled>
-                <span class="button-main">PNG</span>
-                <span class="button-sub">DTP向け1セル1pxグレースケール</span>
+              <button id="downloadTiffDtp" type="button" disabled>
+                <span class="button-main">TIFF</span>
+                <span class="button-sub">DTP向け1セル1px/1bit
+ai/idで色付け可能</span>
               </button>
               <button id="downloadPngOffice" type="button" disabled>
                 <span class="button-main">PNG</span>
-                <span class="button-sub">Photoshop/Office等向け1セル20px</span>
+                <span class="button-sub">Canva/Office等向け
+1セル20px グレー</span>
               </button>
               <button id="downloadSvg" type="button" disabled>
                 <span class="button-main">SVG</span>
               </button>
+              <div class="export-option pdf-export-option">
+                <button id="downloadPdf" type="button" disabled>
+                  <span class="button-main">PDF</span>
+                  <span class="button-sub">DeviceGray/ベクター</span>
+                </button>
+              </div>
               <button id="downloadEps" type="button" disabled>
                 <span class="button-main">EPS</span>
-                <span class="button-sub">２値</span>
+                <span class="button-sub">2値/ベクター</span>
               </button>
             </div>
           </article>

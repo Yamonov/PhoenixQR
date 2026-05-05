@@ -372,9 +372,48 @@ canvas {
   align-items: center;
 }
 
+.export-card header {
+  align-items: center;
+}
+
+.export-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.export-cell-size-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.export-cell-size-control select {
+  min-height: 28px;
+  border: 1px solid #c8cec3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.export-cell-size-note {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .export-panel {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   padding: 14px;
 }
@@ -389,6 +428,12 @@ canvas {
   line-height: 1.22;
 }
 
+.export-option {
+  display: grid;
+  gap: 6px;
+  align-content: stretch;
+}
+
 .button-main,
 .button-sub {
   display: block;
@@ -401,6 +446,7 @@ canvas {
 .button-sub {
   font-size: 12px;
   color: inherit;
+  white-space: pre-line;
 }
 
 .hidden-canvas,
