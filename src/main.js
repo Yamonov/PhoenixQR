@@ -68,22 +68,40 @@ els.fileInput.addEventListener("change", (event) => {
 
 els.downloadPngDtp.addEventListener("click", () => {
   if (!latestResult) return;
-  downloadBlob(generateMatrixPngBlob(latestResult.modules, PNG_DTP_MODULE_PIXELS), "phoenixqr-matrix-dtp.png");
+  void saveBlobAs(
+    generateMatrixPngBlob(latestResult.modules, PNG_DTP_MODULE_PIXELS),
+    buildExportFilename(latestResult, "dtp", "png"),
+    [{ description: "PNG image", accept: { "image/png": [".png"] } }],
+  );
 });
 
 els.downloadPngOffice.addEventListener("click", () => {
   if (!latestResult) return;
-  downloadBlob(generateMatrixPngBlob(latestResult.modules, PNG_OFFICE_MODULE_PIXELS), "phoenixqr-matrix-office.png");
+  void saveBlobAs(
+    generateMatrixPngBlob(latestResult.modules, PNG_OFFICE_MODULE_PIXELS),
+    buildExportFilename(latestResult, "office", "png"),
+    [{ description: "PNG image", accept: { "image/png": [".png"] } }],
+  );
 });
 
 els.downloadSvg.addEventListener("click", () => {
   if (!latestResult) return;
-  downloadText(generateMatrixSvg(latestResult.modules), "phoenixqr-matrix.svg", "image/svg+xml");
+  void saveTextAs(
+    generateMatrixSvg(latestResult.modules),
+    buildExportFilename(latestResult, "", "svg"),
+    "image/svg+xml",
+    [{ description: "SVG image", accept: { "image/svg+xml": [".svg"] } }],
+  );
 });
 
 els.downloadEps.addEventListener("click", () => {
   if (!latestResult) return;
-  downloadText(generateMatrixEpsPostScript(latestResult.modules), "phoenixqr-matrix.eps", "application/postscript");
+  void saveTextAs(
+    generateMatrixEpsPostScript(latestResult.modules),
+    buildExportFilename(latestResult, "", "eps"),
+    "application/postscript",
+    [{ description: "EPS file", accept: { "application/postscript": [".eps"] } }],
+  );
 });
 
 els.warpedCanvas.addEventListener("click", (event) => {
@@ -146,6 +164,7 @@ async function analyzeFile(file) {
 
     latestResult = {
       detected,
+      sourceFileName: file.name,
       warpedImageData,
       content: detected.data,
       version: detected.version,
@@ -1698,8 +1717,49 @@ function cloneImageData(imageData) {
   return new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
 }
 
-function downloadText(text, filename, type) {
+function buildExportFilename(result, variant, extension) {
+  const baseName = sanitizeFileBaseName(result?.sourceFileName);
+  const variantPart = variant ? `_${variant}` : "";
+  return `${baseName}_PhoenixQR${variantPart}.${extension}`;
+}
+
+function sanitizeFileBaseName(filename) {
+  const fallback = "qr-image";
+  const rawName = typeof filename === "string" ? filename.trim() : "";
+  const withoutExtension = rawName.replace(/\.[^./\\]+$/, "");
+  const normalized = (withoutExtension || fallback).normalize("NFKC");
+  const sanitized = normalized
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[<>:"/\\|?*]+/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/_+/g, "_")
+    .replace(/^[ ._]+|[ ._]+$/g, "")
+    .slice(0, 120);
+  return sanitized && !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(sanitized) ? sanitized : fallback;
+}
+
+function saveTextAs(text, filename, type, pickerTypes) {
   const blob = new Blob([text], { type });
+  return saveBlobAs(blob, filename, pickerTypes);
+}
+
+async function saveBlobAs(blob, filename, pickerTypes) {
+  if ("showSaveFilePicker" in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: pickerTypes,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.warn("File System Access API failed. Falling back to download.", error);
+    }
+  }
+
   downloadBlob(blob, filename);
 }
 
