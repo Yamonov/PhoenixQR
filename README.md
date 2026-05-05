@@ -13,7 +13,7 @@
 - PNG DTP向け: 1セル1px、8bitグレースケール
 - PNG Photoshop/Office等向け: 1セル20px、8bitグレースケール
 - SVG: 4セル分のアキ付き
-- EPS: 外周パス化、2値、TIFF 8bitプレビュー付き
+- EPS: 外周パス化、2値、プレビューなし
 
 ## Local Development
 

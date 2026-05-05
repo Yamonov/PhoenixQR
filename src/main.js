@@ -83,7 +83,7 @@ els.downloadSvg.addEventListener("click", () => {
 
 els.downloadEps.addEventListener("click", () => {
   if (!latestResult) return;
-  downloadBlob(generateMatrixEpsBlob(latestResult.modules), "phoenixqr-matrix.eps");
+  downloadText(generateMatrixEpsPostScript(latestResult.modules), "phoenixqr-matrix.eps", "application/postscript");
 });
 
 els.warpedCanvas.addEventListener("click", (event) => {
@@ -1386,13 +1386,6 @@ function generateMatrixSvg(modules) {
   ].join("\n");
 }
 
-function generateMatrixEpsBlob(modules) {
-  const postScript = asciiBytes(generateMatrixEpsPostScript(modules));
-  const tiffPreview = generateTiffPreview(modules, PNG_OFFICE_MODULE_PIXELS);
-  const header = generateDosEpsHeader(postScript.length, tiffPreview.length);
-  return new Blob([header, postScript, tiffPreview], { type: "application/postscript" });
-}
-
 function generateMatrixEpsPostScript(modules) {
   const size = modules.length;
   const totalModules = size + QUIET_ZONE_MODULES * 2;
@@ -1425,21 +1418,6 @@ function generateMatrixEpsPostScript(modules) {
     `%%EOF`,
     "",
   ].join("\n");
-}
-
-function generateDosEpsHeader(postScriptLength, tiffLength) {
-  const headerLength = 30;
-  const header = new Uint8Array(headerLength);
-  const view = new DataView(header.buffer);
-  header.set([0xc5, 0xd0, 0xd3, 0xc6], 0);
-  view.setUint32(4, headerLength, true);
-  view.setUint32(8, postScriptLength, true);
-  view.setUint32(12, 0, true);
-  view.setUint32(16, 0, true);
-  view.setUint32(20, headerLength + postScriptLength, true);
-  view.setUint32(24, tiffLength, true);
-  view.setUint16(28, 0xffff, true);
-  return header;
 }
 
 function traceMatrixContours(modules) {
@@ -1525,74 +1503,6 @@ function simplifyContour(contour) {
 
 function pointKey(x, y) {
   return `${x},${y}`;
-}
-
-function generateTiffPreview(modules, modulePixels) {
-  const size = modules.length;
-  const totalModules = size + QUIET_ZONE_MODULES * 2;
-  const width = totalModules * modulePixels;
-  const height = totalModules * modulePixels;
-  const entries = [
-    { tag: 256, type: 4, count: 1, value: width },
-    { tag: 257, type: 4, count: 1, value: height },
-    { tag: 258, type: 3, count: 1, value: 8 },
-    { tag: 259, type: 3, count: 1, value: 1 },
-    { tag: 262, type: 3, count: 1, value: 1 },
-    { tag: 273, type: 4, count: 1, value: 0 },
-    { tag: 274, type: 3, count: 1, value: 1 },
-    { tag: 277, type: 3, count: 1, value: 1 },
-    { tag: 278, type: 4, count: 1, value: height },
-    { tag: 279, type: 4, count: 1, value: width * height },
-    { tag: 282, type: 5, count: 1, value: 0 },
-    { tag: 283, type: 5, count: 1, value: 0 },
-    { tag: 296, type: 3, count: 1, value: 2 },
-  ];
-  const ifdOffset = 8;
-  const ifdLength = 2 + entries.length * 12 + 4;
-  const xResolutionOffset = ifdOffset + ifdLength;
-  const yResolutionOffset = xResolutionOffset + 8;
-  const pixelOffset = yResolutionOffset + 8;
-  const output = new Uint8Array(pixelOffset + width * height);
-  const view = new DataView(output.buffer);
-
-  output[0] = 0x49;
-  output[1] = 0x49;
-  view.setUint16(2, 42, true);
-  view.setUint32(4, ifdOffset, true);
-  view.setUint16(ifdOffset, entries.length, true);
-
-  entries[5].value = pixelOffset;
-  entries[10].value = xResolutionOffset;
-  entries[11].value = yResolutionOffset;
-
-  entries.forEach((entry, index) => {
-    const offset = ifdOffset + 2 + index * 12;
-    view.setUint16(offset, entry.tag, true);
-    view.setUint16(offset + 2, entry.type, true);
-    view.setUint32(offset + 4, entry.count, true);
-    if (entry.type === 3 && entry.count === 1) {
-      view.setUint16(offset + 8, entry.value, true);
-      view.setUint16(offset + 10, 0, true);
-    } else {
-      view.setUint32(offset + 8, entry.value, true);
-    }
-  });
-
-  view.setUint32(ifdOffset + 2 + entries.length * 12, 0, true);
-  view.setUint32(xResolutionOffset, 72, true);
-  view.setUint32(xResolutionOffset + 4, 1, true);
-  view.setUint32(yResolutionOffset, 72, true);
-  view.setUint32(yResolutionOffset + 4, 1, true);
-
-  for (let y = 0; y < height; y += 1) {
-    const moduleY = Math.floor(y / modulePixels);
-    for (let x = 0; x < width; x += 1) {
-      const moduleX = Math.floor(x / modulePixels);
-      output[pixelOffset + y * width + x] = isDarkModuleAt(modules, moduleX, moduleY) ? 0 : 255;
-    }
-  }
-
-  return output;
 }
 
 function isDarkModuleAt(modules, x, y) {
