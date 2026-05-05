@@ -2,6 +2,7 @@ import jsQR from "jsqr";
 import "./styles.css";
 
 const MAX_INPUT_PIXELS = 20_000_000;
+const SOURCE_PREVIEW_SIZE = 304;
 const WARPED_MODULE_PIXELS = 12;
 const MATRIX_MODULE_PIXELS = 12;
 const PNG_DTP_MODULE_PIXELS = 1;
@@ -25,8 +26,9 @@ const els = {
   sourceCanvas: document.querySelector("#sourceCanvas"),
   warpedCanvas: document.querySelector("#warpedCanvas"),
   matrixCanvas: document.querySelector("#matrixCanvas"),
-  sourceSize: document.querySelector("#sourceSize"),
-  warpedSize: document.querySelector("#warpedSize"),
+  overlayOpacity: document.querySelector("#overlayOpacity"),
+  overlayOpacityValue: document.querySelector("#overlayOpacityValue"),
+  overlayToggle: document.querySelector("#overlayToggle"),
   matrixSize: document.querySelector("#matrixSize"),
   downloadPngDtp: document.querySelector("#downloadPngDtp"),
   downloadPngOffice: document.querySelector("#downloadPngOffice"),
@@ -44,6 +46,7 @@ const els = {
 };
 
 let latestResult = null;
+let overlayEnabled = true;
 
 els.dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -108,6 +111,24 @@ els.warpedCanvas.addEventListener("click", (event) => {
   handleComparisonClick(event);
 });
 
+els.overlayOpacity.addEventListener("input", () => {
+  updateOverlayOpacityLabel();
+  if (latestResult?.warpedImageData && latestResult?.modules) {
+    renderComparisonCanvas(latestResult.warpedImageData, latestResult.modules);
+  }
+});
+
+els.overlayToggle.addEventListener("click", () => {
+  overlayEnabled = !overlayEnabled;
+  updateOverlayToggle();
+  if (latestResult?.warpedImageData && latestResult?.modules) {
+    renderComparisonCanvas(latestResult.warpedImageData, latestResult.modules);
+  }
+});
+
+updateOverlayOpacityLabel();
+updateOverlayToggle();
+
 async function analyzeFile(file) {
   resetUi();
 
@@ -139,7 +160,7 @@ async function analyzeFile(file) {
     }
 
     const corners = detection.location;
-    drawSourceOverlay(source.ctx, source.canvas, corners);
+    drawSourceOverlay(source.preview.ctx, source.preview.canvas, mapCornersToPreview(corners, source.preview));
 
     setMessage("セル構成を抽出しています。", "busy");
     await nextFrame();
@@ -200,14 +221,13 @@ async function analyzeFile(file) {
 function resetUi() {
   latestResult = null;
   setExportButtonsEnabled(false);
-  [els.sourceCanvas, els.warpedCanvas, els.matrixCanvas].forEach((canvas) => {
+  resetSourcePreview();
+  [els.warpedCanvas, els.matrixCanvas].forEach((canvas) => {
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     canvas.width = 0;
     canvas.height = 0;
   });
-  els.sourceSize.textContent = "-";
-  els.warpedSize.textContent = "-";
   els.matrixSize.textContent = "-";
   els.metaContent.textContent = "-";
   els.metaVersion.textContent = "-";
@@ -252,16 +272,56 @@ function drawInputImage(bitmap) {
   const scale = Math.min(1, Math.sqrt(MAX_INPUT_PIXELS / (originalWidth * originalHeight)));
   const width = Math.max(1, Math.round(originalWidth * scale));
   const height = Math.max(1, Math.round(originalHeight * scale));
-  const ctx = els.sourceCanvas.getContext("2d", { willReadFrequently: true });
-  els.sourceCanvas.width = width;
-  els.sourceCanvas.height = height;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  canvas.width = width;
+  canvas.height = height;
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(bitmap, 0, 0, width, height);
-  els.sourceSize.textContent = `${width} x ${height}`;
+  const preview = drawSourcePreview(canvas);
   return {
-    canvas: els.sourceCanvas,
+    canvas,
     ctx,
+    preview,
     warning: scale < 1 ? `入力画像が大きいため ${Math.round(scale * 100)}% に縮小して解析しました。` : "",
+  };
+}
+
+function resetSourcePreview() {
+  const canvas = els.sourceCanvas;
+  const ctx = canvas.getContext("2d");
+  canvas.width = SOURCE_PREVIEW_SIZE;
+  canvas.height = SOURCE_PREVIEW_SIZE;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, SOURCE_PREVIEW_SIZE, SOURCE_PREVIEW_SIZE);
+  els.dropZone.classList.add("is-empty");
+}
+
+function drawSourcePreview(sourceCanvas) {
+  const canvas = els.sourceCanvas;
+  const ctx = canvas.getContext("2d");
+  canvas.width = SOURCE_PREVIEW_SIZE;
+  canvas.height = SOURCE_PREVIEW_SIZE;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, SOURCE_PREVIEW_SIZE, SOURCE_PREVIEW_SIZE);
+
+  const scale = Math.min(1, SOURCE_PREVIEW_SIZE / sourceCanvas.width, SOURCE_PREVIEW_SIZE / sourceCanvas.height);
+  const width = Math.max(1, Math.round(sourceCanvas.width * scale));
+  const height = Math.max(1, Math.round(sourceCanvas.height * scale));
+  const offsetX = Math.round((SOURCE_PREVIEW_SIZE - width) / 2);
+  const offsetY = Math.round((SOURCE_PREVIEW_SIZE - height) / 2);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, offsetX, offsetY, width, height);
+  els.dropZone.classList.remove("is-empty");
+
+  return {
+    canvas,
+    ctx,
+    offsetX,
+    offsetY,
+    scaleX: width / sourceCanvas.width,
+    scaleY: height / sourceCanvas.height,
   };
 }
 
@@ -751,6 +811,20 @@ function intersectionOverUnion(a, b) {
   return union > 0 ? intersection / union : 0;
 }
 
+function mapCornersToPreview(corners, preview) {
+  const mapPoint = (point) => ({
+    x: preview.offsetX + point.x * preview.scaleX,
+    y: preview.offsetY + point.y * preview.scaleY,
+  });
+
+  return {
+    topLeftCorner: mapPoint(corners.topLeftCorner),
+    topRightCorner: mapPoint(corners.topRightCorner),
+    bottomRightCorner: mapPoint(corners.bottomRightCorner),
+    bottomLeftCorner: mapPoint(corners.bottomLeftCorner),
+  };
+}
+
 function drawSourceOverlay(ctx, canvas, corners) {
   const path = [
     corners.topLeftCorner,
@@ -837,10 +911,7 @@ function mapPoint(transform, u, v) {
 
 function renderWarpedQr(sourceImage, sourceWidth, sourceHeight, transform, modules) {
   const outputSize = modules * WARPED_MODULE_PIXELS;
-  const output = renderWarpedImageData(sourceImage, sourceWidth, sourceHeight, transform, outputSize);
-
-  els.warpedSize.textContent = `${outputSize} x ${outputSize}`;
-  return output;
+  return renderWarpedImageData(sourceImage, sourceWidth, sourceHeight, transform, outputSize);
 }
 
 function renderWarpedImageData(sourceImage, sourceWidth, sourceHeight, transform, outputSize) {
@@ -1675,12 +1746,15 @@ function drawImageData(canvas, imageData) {
 }
 
 function drawModuleOverlay(canvas, modules) {
+  if (!overlayEnabled) return;
+
   const ctx = canvas.getContext("2d");
   const moduleWidth = canvas.width / modules.length;
   const moduleHeight = canvas.height / modules.length;
+  const opacity = getOverlayOpacity();
 
   ctx.save();
-  ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+  ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
   modules.forEach((row, y) => {
     row.forEach((isDark, x) => {
       if (!isDark) return;
@@ -1688,6 +1762,22 @@ function drawModuleOverlay(canvas, modules) {
     });
   });
   ctx.restore();
+}
+
+function getOverlayOpacity() {
+  const value = Number(els.overlayOpacity.value);
+  if (!Number.isFinite(value)) return 0.5;
+  return Math.min(1, Math.max(0.1, value / 100));
+}
+
+function updateOverlayOpacityLabel() {
+  els.overlayOpacityValue.textContent = `${Math.round(getOverlayOpacity() * 100)}%`;
+}
+
+function updateOverlayToggle() {
+  els.overlayToggle.textContent = overlayEnabled ? "●" : "○";
+  els.overlayToggle.setAttribute("aria-pressed", String(overlayEnabled));
+  els.overlayToggle.setAttribute("aria-label", overlayEnabled ? "オーバーレイを非表示にする" : "オーバーレイを表示する");
 }
 
 function drawModuleGrid(canvas, size) {

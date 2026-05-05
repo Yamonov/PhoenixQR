@@ -17,6 +17,10 @@
   --accent-strong: #981b23;
   --green: #1b7f65;
   --ink: #151515;
+  --panel-width: 340px;
+  --workspace-gap: 18px;
+  --comparison-max-width: 859px;
+  --shell-max-width: calc(var(--panel-width) + var(--workspace-gap) + var(--comparison-max-width));
 }
 
 * {
@@ -56,7 +60,7 @@ button:disabled {
 }
 
 .shell {
-  width: min(1440px, calc(100vw - 32px));
+  width: min(var(--shell-max-width), calc(100vw - 32px));
   margin: 0 auto;
   padding: 24px 0 40px;
 }
@@ -92,21 +96,12 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.status-pill {
-  border: 1px solid #bfc8b8;
-  border-radius: 999px;
-  padding: 6px 12px;
-  background: #ffffff;
-  color: #374036;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
 .workspace {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: var(--panel-width) minmax(0, var(--comparison-max-width));
+  gap: var(--workspace-gap);
   align-items: start;
+  justify-content: center;
 }
 
 .control-panel,
@@ -123,17 +118,18 @@ button:disabled {
 }
 
 .drop-zone {
+  position: relative;
   display: grid;
   place-items: center;
-  min-height: 180px;
-  padding: 18px;
+  width: 100%;
+  min-height: 306px;
+  padding: 0;
   text-align: center;
   border: 1px dashed #aeb8a6;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(209, 59, 67, 0.08), transparent 42%),
-    var(--surface-alt);
+  background: var(--surface-alt);
   cursor: pointer;
+  overflow: hidden;
 }
 
 .drop-zone.is-over {
@@ -151,17 +147,23 @@ button:disabled {
   pointer-events: none;
 }
 
-.drop-title {
-  display: block;
+.drop-placeholder {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 18px;
+  color: var(--ink);
   font-size: 19px;
   font-weight: 700;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(209, 59, 67, 0.08), transparent 42%),
+    rgba(240, 243, 239, 0.9);
 }
 
-.drop-note {
-  display: block;
-  margin-top: 6px;
-  color: var(--text-muted);
-  font-size: 13px;
+.drop-zone.is-empty .drop-placeholder {
+  display: grid;
 }
 
 .message {
@@ -249,12 +251,55 @@ button:disabled {
   margin: 0;
   font-size: 15px;
   letter-spacing: 0;
+  min-width: 0;
 }
 
 .preview-card header span {
   color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
+}
+
+.overlay-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.overlay-control input {
+  width: 118px;
+  accent-color: var(--accent);
+}
+
+.overlay-control output {
+  width: 34px;
+  text-align: right;
+  color: #374036;
+  font-variant-numeric: tabular-nums;
+}
+
+button.overlay-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-color: #b9c3b1;
+  background: #ffffff;
+  color: var(--accent-strong);
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+button.overlay-toggle[aria-pressed="false"] {
+  color: var(--text-muted);
+  background: #f7f8f5;
 }
 
 canvas {
@@ -276,18 +321,22 @@ canvas {
   image-rendering: auto;
 }
 
-.source-card {
-  margin-top: 16px;
-}
-
-.source-card canvas {
-  min-height: 180px;
+#sourceCanvas {
+  background: #ffffff;
+  width: 304px;
+  height: 304px;
+  min-height: 0;
+  max-width: 100%;
 }
 
 .comparison-card canvas {
   aspect-ratio: 1 / 1;
   cursor: crosshair;
   min-height: 0;
+}
+
+.comparison-card header {
+  align-items: center;
 }
 
 .export-panel {
@@ -339,6 +388,10 @@ canvas {
 }
 
 .site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
   margin-top: 18px;
   color: #7a8275;
   font-size: 11px;
@@ -358,7 +411,7 @@ canvas {
 
 @media (max-width: 720px) {
   .shell {
-    width: min(100vw - 18px, 1440px);
+    width: min(100vw - 18px, var(--shell-max-width));
     padding-top: 10px;
   }
 
@@ -374,9 +427,19 @@ canvas {
     margin-top: 8px;
   }
 
-  .status-pill {
-    width: fit-content;
-    margin-top: 12px;
+  .comparison-card header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .overlay-control {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .overlay-control input {
+    flex: 1;
+    min-width: 80px;
   }
 
   .preview-grid {
