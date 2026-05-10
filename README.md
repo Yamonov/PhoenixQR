@@ -2,7 +2,7 @@
 
 画像からQRコードの範囲を検出し、読み取り結果とは別に、撮影画像から抽出したセル構成をそのまま描画するWebアプリです。
 
-セルをクリックして手動修正し、同じmodule matrixのQRをPNG、SVG、EPSで書き出せます。
+セルをクリックして手動修正し、同じmodule matrixのQRをTIFF、PNG、SVG、PDF、EPSで書き出せます。
 
 ## Features
 
@@ -10,9 +10,10 @@
 - 遠近補正後の画像に抽出セルを50%赤で重ねて表示
 - セル単位のクリック修正
 - jsQRのエラー訂正後デコード値による確認表示
-- PNG DTP向け: 1セル1px、8bitグレースケール
-- PNG Photoshop/Office等向け: 1セル20px、8bitグレースケール
+- TIFF DTP向け: 1セル1px、1bit
+- PNG Canva/Office等向け: 1セル20px、8bitグレースケール
 - SVG: 4セル分のアキ付き
+- PDF: DeviceGray、ベクター
 - EPS: 外周パス化、2値、プレビューなし
 
 ## ローカルで実行する
@@ -30,7 +31,7 @@ python3 -m http.server 8000
 ```
 
 4. ブラウザで `http://127.0.0.1:8000/` を開きます。
-5. PNGまたはJPG画像をドロップして使用します。
+5. 画像ファイルをドロップして使用します。
 
 `index.html` を直接ダブルクリックして開くと、ブラウザのセキュリティ制約でJavaScriptが正しく動かない場合があります。上記のようにローカルWebサーバ経由で開いてください。
 
@@ -45,8 +46,8 @@ python3 -m http.server 8000
 
 ## Third-Party License
 
-Runtime dependency:
+Runtime dependencies:
 
 - `jsqr` 1.4.0, Apache-2.0
 
-公開用のライセンス表示は `public/THIRD_PARTY_NOTICES.txt` と `public/licenses/jsqr-LICENSE.txt` から `docs/` へコピーされます。
+公開用のライセンス表示は `public/THIRD_PARTY_NOTICES.txt` と `public/licenses/` から `docs/` へコピーされます。

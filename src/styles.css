@@ -70,12 +70,12 @@ button:disabled {
   justify-content: space-between;
   gap: 20px;
   align-items: center;
-  padding: 18px 2px 22px;
+  padding: 0 2px 18px;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: clamp(30px, 5vw, 48px);
+  font-size: clamp(20px, 3.33vw, 32px);
   line-height: 1;
   letter-spacing: 0;
 }
@@ -90,7 +90,7 @@ button:disabled {
 .brand-line p {
   margin: 0;
   color: var(--text-muted);
-  font-size: clamp(18px, 2.2vw, 25px);
+  font-size: clamp(12px, 1.47vw, 16.7px);
   font-weight: 750;
   line-height: 1.16;
   overflow-wrap: anywhere;
@@ -309,6 +309,11 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+.overlay-shortcut-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 button.overlay-toggle {
   display: grid;
   place-items: center;
@@ -485,6 +490,10 @@ canvas {
 
 .site-footer a:hover {
   color: #374036;
+}
+
+#libraryStatus[data-state="warn"] {
+  color: #9a6212;
 }
 
 @media (max-width: 980px) {

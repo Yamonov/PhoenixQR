@@ -7,4 +7,3 @@ jsQR
 - Repository: https://github.com/cozmo/jsQR
 - License: Apache License 2.0
 - License text: licenses/jsqr-LICENSE.txt
-

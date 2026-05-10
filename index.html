@@ -17,9 +17,9 @@
       <section class="workspace" aria-label="QR analysis workspace">
         <aside class="control-panel">
           <label class="drop-zone is-empty" id="dropZone">
-            <input id="fileInput" type="file" accept="image/png,image/jpeg" />
+            <input id="fileInput" type="file" accept="image/*" />
             <canvas id="sourceCanvas" width="304" height="304"></canvas>
-            <span class="drop-placeholder" id="sourcePlaceholder">PNG/JPEGをドロップ</span>
+            <span class="drop-placeholder" id="sourcePlaceholder">画像ファイルをドロップ</span>
           </label>
 
           <div class="message" id="message" role="status">画像を選択してください。</div>
@@ -76,6 +76,7 @@
                 <label id="overlayOpacityLabel" for="overlayOpacity">不透明度：</label>
                 <input id="overlayOpacity" type="range" min="10" max="100" step="5" value="50" />
                 <output id="overlayOpacityValue" for="overlayOpacity">50%</output>
+                <span id="overlayShortcutHint" class="overlay-shortcut-hint">SPACEでオンオフ</span>
                 <button id="overlayToggle" class="overlay-toggle" type="button" aria-pressed="true" aria-label="オーバーレイを非表示にする" title="オーバーレイの表示切替">●</button>
               </div>
             </header>
