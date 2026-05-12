@@ -130,6 +130,7 @@ const ALIGNMENT_PATTERN_CENTERS = [
 const TRANSLATIONS = {
   ja: {
     brandTagline: "セル構成の全く同じQRコードを生成",
+    brandVersion: "（Ver 1.2）",
     dropPlaceholder: "画像ファイルをドロップ",
     initialMessage: "画像を選択してください。",
     comparisonTitle: "セルをクリックやドラッグで修正できます",
@@ -147,7 +148,8 @@ const TRANSLATIONS = {
     exportCellSizeHighQuality: "0.25mm（高品質印刷）",
     exportCellSizePrinter: "0.3mm（プリンタ等）",
     exportCellSizeLowQuality: "0.35mm（低品質印刷）",
-    exportCellSizeNote: "※最小12mm（マージン含む）",
+    exportSizeReference: ({ size }) => `参考最小配置サイズ：${size} mm`,
+    exportSizeReferenceEmpty: "参考最小配置サイズ：- mm",
     epsSub: "2値/ベクター",
     trademark: "QRコードは株式会社デンソーウェーブの登録商標です",
     selectImageFile: "画像ファイルを選択してください。",
@@ -198,6 +200,7 @@ const TRANSLATIONS = {
   },
   en: {
     brandTagline: "Generate a QR code with the exact same cell structure",
+    brandVersion: "(Ver 1.2)",
     dropPlaceholder: "Drop an image file",
     initialMessage: "Select an image.",
     comparisonTitle: "Click or drag cells to edit",
@@ -215,7 +218,8 @@ const TRANSLATIONS = {
     exportCellSizeHighQuality: "0.25 mm (high-quality print)",
     exportCellSizePrinter: "0.3 mm (printers)",
     exportCellSizeLowQuality: "0.35 mm (low-quality print)",
-    exportCellSizeNote: "Minimum 12 mm (including margin)",
+    exportSizeReference: ({ size }) => `Reference minimum placement size: ${size} mm`,
+    exportSizeReferenceEmpty: "Reference minimum placement size: - mm",
     epsSub: "1-bit/vector",
     trademark: "QR Code is a registered trademark of DENSO WAVE INCORPORATED.",
     selectImageFile: "Select an image file.",
@@ -296,6 +300,7 @@ const els = {
   downloadSvg: document.querySelector("#downloadSvg"),
   downloadPdf: document.querySelector("#downloadPdf"),
   exportCellSize: document.querySelector("#exportCellSize"),
+  exportSizeReference: document.querySelector("#exportSizeReference"),
   downloadEps: document.querySelector("#downloadEps"),
   metaContent: document.querySelector("#metaContent"),
   metaVersion: document.querySelector("#metaVersion"),
@@ -392,6 +397,10 @@ els.downloadPreviewProof.addEventListener("click", () => {
   void savePreviewProof();
 });
 
+els.exportCellSize.addEventListener("change", () => {
+  updateExportSizeReference();
+});
+
 els.warpedCanvas.addEventListener("pointerdown", (event) => {
   beginComparisonDrag(event);
 });
@@ -436,6 +445,7 @@ function applyLocale() {
 
   const staticText = [
     ["#brandTagline", "brandTagline"],
+    ["#brandVersion", "brandVersion"],
     ["#sourcePlaceholder", "dropPlaceholder"],
     ["#message", "initialMessage"],
     ["#comparisonTitle", "comparisonTitle"],
@@ -447,7 +457,6 @@ function applyLocale() {
     ["#downloadPngOffice .button-sub", "pngOfficeSub"],
     ["#downloadPdf .button-sub", "pdfSub"],
     ["#exportCellSizeLabel", "exportCellSizeLabel"],
-    ["#exportCellSizeNote", "exportCellSizeNote"],
     ["#downloadEps .button-sub", "epsSub"],
     ["#trademarkNotice", "trademark"],
     ["#safariShapeDetectionNote", "safariShapeDetectionNote"],
@@ -461,6 +470,7 @@ function applyLocale() {
   setSelectOptionText(els.exportCellSize, "0.25", t("exportCellSizeHighQuality"));
   setSelectOptionText(els.exportCellSize, "0.3", t("exportCellSizePrinter"));
   setSelectOptionText(els.exportCellSize, "0.35", t("exportCellSizeLowQuality"));
+  updateExportSizeReference();
   updateLibraryStatus();
 }
 
@@ -657,6 +667,7 @@ async function analyzeFile(file) {
     };
 
     renderMetadata(file, detected, sample, format, source.warning, verification);
+    updateExportSizeReference();
     if (!verification.ok) {
       setMessage(verification.reason, "error");
       setExportButtonsEnabled(true);
@@ -669,6 +680,7 @@ async function analyzeFile(file) {
     setExportButtonsEnabled(true);
   } catch (error) {
     latestResult = null;
+    updateExportSizeReference();
     setMessage(error instanceof Error ? error.message : String(error), "error");
   }
 }
@@ -698,6 +710,7 @@ function resetUi() {
   els.metaReadDifference.textContent = "-";
   els.metaReadCheck.removeAttribute("data-state");
   els.metaReadDifference.removeAttribute("title");
+  updateExportSizeReference();
 }
 
 async function loadBitmap(file) {
@@ -5925,6 +5938,17 @@ function setExportButtonsEnabled(enabled) {
   [els.downloadPreviewProof, els.downloadTiffDtp, els.downloadPngOffice, els.downloadSvg, els.downloadPdf, els.downloadEps].forEach((button) => {
     if (button) button.disabled = !enabled;
   });
+}
+
+function updateExportSizeReference() {
+  if (!els.exportSizeReference) return;
+  if (!latestResult?.modules?.length) {
+    els.exportSizeReference.textContent = t("exportSizeReferenceEmpty");
+    return;
+  }
+
+  const sizing = getExportSizing(latestResult.modules);
+  els.exportSizeReference.textContent = t("exportSizeReference", { size: formatMm(sizing.outputSizeMm) });
 }
 
 async function savePreviewProof() {

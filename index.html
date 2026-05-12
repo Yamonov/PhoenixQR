@@ -10,7 +10,7 @@
       <section class="topbar" aria-label="Application header">
         <div class="brand-line">
           <h1>PhoenixQR</h1>
-          <p id="brandTagline">セル構成の全く同じQRコードを生成</p>
+          <p><span id="brandTagline">セル構成の全く同じQRコードを生成</span><span id="brandVersion" class="brand-version">（Ver 1.2）</span></p>
         </div>
       </section>
 
@@ -84,16 +84,18 @@
           <article class="preview-card export-card">
             <header>
               <div class="export-header-main">
-                <h2 id="exportTitle">修正したQRを書き出し</h2>
-                <label class="export-cell-size-control" for="exportCellSize">
-                  <span id="exportCellSizeLabel">セルサイズ：</span>
-                  <select id="exportCellSize">
-                    <option value="0.25" selected>0.25mm（高品質印刷）</option>
-                    <option value="0.3">0.3mm（プリンタ等）</option>
-                    <option value="0.35">0.35mm（低品質印刷）</option>
-                  </select>
-                  <span id="exportCellSizeNote" class="export-cell-size-note">※最小12mm（マージン含む）</span>
-                </label>
+                <div class="export-header-row">
+                  <h2 id="exportTitle">修正したQRを書き出し</h2>
+                  <label class="export-cell-size-control" for="exportCellSize">
+                    <span id="exportCellSizeLabel">セルサイズ：</span>
+                    <select id="exportCellSize">
+                      <option value="0.25" selected>0.25mm（高品質印刷）</option>
+                      <option value="0.3">0.3mm（プリンタ等）</option>
+                      <option value="0.35">0.35mm（低品質印刷）</option>
+                    </select>
+                  </label>
+                </div>
+                <p id="exportSizeReference" class="export-size-reference">参考最小配置サイズ：- mm</p>
               </div>
               <button id="downloadPreviewProof" class="header-action" type="button" disabled>プレビュー状態をPNGとして書き出し（証明用）</button>
             </header>
@@ -131,8 +133,8 @@ ai/idで色付け可能</span>
 
       <footer class="site-footer">
         <a href="https://github.com/Yamonov/PhoenixQR" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="licenses/phoenixqr-LICENSE.txt" target="_blank" rel="noreferrer">Apache-2.0</a>
         <a id="opencvLicenseLink" href="licenses/opencv-LICENSE.txt" target="_blank" rel="noreferrer">OpenCV License</a>
-        <span id="appVersion">Ver 1.2</span>
         <span id="libraryStatus">jsQR ready</span>
         <span id="trademarkNotice">QRコードは株式会社デンソーウェーブの登録商標です</span>
       </footer>

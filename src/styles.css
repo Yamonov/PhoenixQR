@@ -96,6 +96,13 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.brand-version {
+  margin-left: 0.45em;
+  font-size: 0.78em;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: var(--panel-width) minmax(0, var(--comparison-max-width));
@@ -369,10 +376,19 @@ canvas {
 }
 
 .export-card header {
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 14px;
 }
 
 .export-header-main {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.export-header-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -400,11 +416,16 @@ canvas {
   padding: 2px 8px;
 }
 
-.export-cell-size-note {
+.export-size-reference {
+  margin: 0;
   color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.2;
-  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.export-card .header-action {
+  justify-self: end;
+  align-self: start;
 }
 
 .export-panel {
@@ -518,6 +539,14 @@ canvas {
   .comparison-card header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .export-card header {
+    grid-template-columns: 1fr;
+  }
+
+  .export-card .header-action {
+    justify-self: start;
   }
 
   .overlay-control {
