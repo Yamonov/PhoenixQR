@@ -228,22 +228,13 @@ button:disabled {
   color: var(--accent-strong);
 }
 
-.panel-links {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-  padding-top: 12px;
+.side-note {
+  margin: 16px 0 0;
+  padding-top: 10px;
   border-top: 1px solid #edf0ea;
-  font-size: 12px;
-}
-
-.panel-links a {
-  color: var(--text-muted);
-  text-underline-offset: 2px;
-}
-
-.panel-links a:hover {
-  color: #374036;
+  color: #7a8275;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .preview-grid {

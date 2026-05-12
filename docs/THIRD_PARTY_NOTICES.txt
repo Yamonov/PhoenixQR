@@ -7,3 +7,9 @@ jsQR
 - Repository: https://github.com/cozmo/jsQR
 - License: Apache License 2.0
 - License text: licenses/jsqr-LICENSE.txt
+
+OpenCV
+- Version: 4.13.0
+- Repository: https://github.com/opencv/opencv
+- License: Apache License 2.0
+- License text: licenses/opencv-LICENSE.txt
