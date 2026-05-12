@@ -244,6 +244,19 @@ button:disabled {
   line-height: 1.4;
 }
 
+.support-note {
+  margin-top: 10px;
+}
+
+.support-note a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
+.support-note a:hover {
+  color: #374036;
+}
+
 .preview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

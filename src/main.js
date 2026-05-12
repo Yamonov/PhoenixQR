@@ -195,6 +195,7 @@ const TRANSLATIONS = {
     proofSourceTitle: "元画像＋検出範囲",
     proofProcessedTitle: "検出処理画像",
     safariShapeDetectionNote: "SafariではShape Detection APIを機能フラグでオンにすると速くなります",
+    supportTipLink: "Tipで支援する",
     opencvLicenseLink: "OpenCVライセンス",
     previewPngExportFailed: "プレビューPNGを書き出せませんでした。",
   },
@@ -265,6 +266,7 @@ const TRANSLATIONS = {
     proofSourceTitle: "Original + detected area",
     proofProcessedTitle: "Processed detection image",
     safariShapeDetectionNote: "Safari can run faster when Shape Detection API is enabled in feature flags.",
+    supportTipLink: "Support with a tip",
     opencvLicenseLink: "OpenCV License",
     previewPngExportFailed: "Could not export the preview PNG.",
   },
@@ -460,6 +462,7 @@ function applyLocale() {
     ["#downloadEps .button-sub", "epsSub"],
     ["#trademarkNotice", "trademark"],
     ["#safariShapeDetectionNote", "safariShapeDetectionNote"],
+    ["#supportTipLink", "supportTipLink"],
     ["#opencvLicenseLink", "opencvLicenseLink"],
   ];
 
