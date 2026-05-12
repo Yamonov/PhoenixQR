@@ -4,6 +4,12 @@
 
 検出結果は遠近補正後の画像に重ねて表示され、セル単位でクリックまたはドラッグして手動修正できます。修正後のmodule matrixは、TIFF、PNG、SVG、PDF、EPSで書き出せます。
 
+## 支援
+
+気に入ったらご支援お願いします。
+
+[<img width="250" height="28" alt="image" src="https://github.com/user-attachments/assets/da9369be-e2f4-4b0c-a381-ee951bc17fe2" />](https://ko-fi.com/iwashiya)
+
 ## Features
 
 - PNG/JPEG/WebP/AVIFなど、ブラウザが読み込める画像形式に対応
