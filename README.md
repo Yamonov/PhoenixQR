@@ -63,6 +63,13 @@ cd docs
 python3 -m http.server 8000
 ```
 
+## Changelog
+
+### 1.3
+
+- 読み取り精度を大幅に向上
+- 強制パターンを緑色で表示し、編集不可とした
+
 ## License
 
 PhoenixQR is licensed under the Apache License, Version 2.0.

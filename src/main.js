@@ -39,6 +39,9 @@ const BROWSER_CROP_TARGET_MIN_SIDE = 1280;
 const BROWSER_CROP_MAX_SIDE = JSQR_BROWSER_CROP_SIDE;
 const BROWSER_DETECTOR_RETRY_ROTATION_RADIANS = Math.PI / 4;
 const FALLBACK_CANDIDATE_LIMIT = 24;
+const FULL_FRAME_GRID_MIN_MODULE_PIXELS = 3;
+const FULL_FRAME_GRID_MAX_ASPECT_DELTA = 0.035;
+const FULL_FRAME_GRID_CANDIDATE_LIMIT = 16;
 const MAX_DETECTION_SIDE = 1200;
 const FULL_IMAGE_UPSCALE_MAX_SIDE = JSQR_MAX_INPUT_SIDE;
 const DETECTION_TIME_BUDGET_MS = 7000;
@@ -60,7 +63,7 @@ const USE_JSQR_FALLBACK_AFTER_BROWSER_PRE_CROP = true;
 const USE_BROWSER_BARCODE_DETECTOR_ONLY = false;
 const USE_OPENCV_STRAIGHT_QR = true;
 const OPENCV_VENDOR_SCRIPT = "vendor/opencv.js";
-const USE_PRE_CROP_CANDIDATES = false;
+const USE_PRE_CROP_CANDIDATES = true;
 const USE_FINDER_TRIANGLE_WARP = false;
 const USE_PATTERN_HOMOGRAPHY_REFINEMENT = false;
 const USE_MODULE_MATRIX_WARP_REFINEMENT = true;
@@ -73,16 +76,31 @@ const FINDER_FOURTH_POINT_SEARCH_MODULES = 0.32;
 const OPENCV_FINDER_REFINE_SEARCH_MODULES = 1.65;
 const OPENCV_ALIGNMENT_REFINE_SEARCH_MODULES = 1.45;
 const OPENCV_REFINED_WARP_MIN_SCORE_GAIN = 5;
+const OPENCV_QR_EPS_X = 0.4;
+const OPENCV_QR_EPS_Y = 0.2;
+const OPENCV_PANEL_WARP_SIZE = 640;
+const OPENCV_PANEL_CANDIDATE_LIMIT = 8;
+const OPENCV_PANEL_THRESHOLDS = [120, 135, 150, 165, 180, 195];
 const OPENCV_GRID_EDGE_REFINE_MIN_POINTS = 28;
 const OPENCV_GRID_EDGE_REFINE_MAX_POINTS = 260;
 const OPENCV_GRID_EDGE_SEARCH_MODULES = 0.46;
 const OPENCV_GRID_EDGE_MIN_CONTRAST = 18;
 const OPENCV_GRID_EDGE_SCORE_WEIGHT = 0.09;
+const OPENCV_DISPLAY_REFINEMENT_MIN_CONTRAST = 40;
+const OPENCV_DISPLAY_REFINEMENT_STRONG_MARGIN = 34;
+const OPENCV_DISPLAY_REFINEMENT_MIN_SCORE_GAIN = 24;
+const OPENCV_DISPLAY_REFINEMENT_MAX_FLIP_RATIO = 0.12;
+const DISPLAY_GRID_EDGE_SCORE_WEIGHT = 18;
+const DISPLAY_BOUNDS_ANCHOR_PENALTY = 9;
 const MODULE_WARP_REFINE_MAX_SIZE = 61;
 const MODULE_WARP_REFINE_MAX_CORNER_SHIFT_MODULES = 0.62;
 const MODULE_WARP_REFINE_STEPS = [0.26, 0.13, 0.06];
 const MODULE_WARP_REFINE_MIN_SCORE_GAIN = 10;
 const MODULE_WARP_REFINE_TIME_BUDGET_MS = 650;
+const MODULE_OVERLAY_DARK_RGB = "209, 59, 67";
+const MODULE_OVERLAY_FIXED_RGB = "0, 104, 74";
+const MATRIX_DARK_COLOR = "#111111";
+const MATRIX_FIXED_COLOR = "#00684a";
 const ALIGNMENT_PATTERN_CENTERS = [
   [],
   [],
@@ -130,10 +148,11 @@ const ALIGNMENT_PATTERN_CENTERS = [
 const TRANSLATIONS = {
   ja: {
     brandTagline: "セル構成の全く同じQRコードを生成",
-    brandVersion: "（Ver 1.2）",
+    brandVersion: "（Ver 1.3）",
     dropPlaceholder: "画像ファイルをドロップ",
     initialMessage: "画像を選択してください。",
-    comparisonTitle: "セルをクリックやドラッグで修正できます",
+    comparisonTitle: "セルをクリックやドラッグで修正",
+    comparisonTitleInverted: "セルをクリックやドラッグで修正（反転表示中）",
     opacityLabel: "不透明度：",
     overlayHide: "オーバーレイを非表示にする",
     overlayShow: "オーバーレイを表示する",
@@ -169,6 +188,7 @@ const TRANSLATIONS = {
     barcodeDetectorNotice: "ブラウザの BarcodeDetector で切り出し",
     barcodeDetectorRotatedNotice: "45度回転後の BarcodeDetector で切り出し",
     openCvStraightNotice: "OpenCV QRCodeDetector で範囲を検出しました。",
+    fullFrameModuleNotice: "入力全体を QR セル画像として検出しました。",
     barcodeDetectorUnavailable: "このブラウザでは BarcodeDetector の qr_code が使用できません。",
     barcodeDetectorVersionFailed: "BarcodeDetector はQRを検出しましたが、セル数を推定できませんでした。",
     detectionTimeout:
@@ -201,10 +221,11 @@ const TRANSLATIONS = {
   },
   en: {
     brandTagline: "Generate a QR code with the exact same cell structure",
-    brandVersion: "(Ver 1.2)",
+    brandVersion: "(Ver 1.3)",
     dropPlaceholder: "Drop an image file",
     initialMessage: "Select an image.",
     comparisonTitle: "Click or drag cells to edit",
+    comparisonTitleInverted: "Click or drag cells to edit (inverted view)",
     opacityLabel: "Opacity:",
     overlayHide: "Hide overlay",
     overlayShow: "Show overlay",
@@ -240,6 +261,7 @@ const TRANSLATIONS = {
     barcodeDetectorNotice: "browser BarcodeDetector pre-crop",
     barcodeDetectorRotatedNotice: "45-degree rotated BarcodeDetector pre-crop",
     openCvStraightNotice: "Detected with OpenCV QRCodeDetector.",
+    fullFrameModuleNotice: "Detected the full image as a QR module grid.",
     barcodeDetectorUnavailable: "This browser does not provide BarcodeDetector qr_code support.",
     barcodeDetectorVersionFailed: "BarcodeDetector detected a QR, but the cell count could not be estimated.",
     detectionTimeout:
@@ -291,6 +313,7 @@ const els = {
   message: document.querySelector("#message"),
   sourceCanvas: document.querySelector("#sourceCanvas"),
   warpedCanvas: document.querySelector("#warpedCanvas"),
+  comparisonTitle: document.querySelector("#comparisonTitle"),
   matrixCanvas: document.querySelector("#matrixCanvas"),
   overlayOpacity: document.querySelector("#overlayOpacity"),
   overlayOpacityValue: document.querySelector("#overlayOpacityValue"),
@@ -450,7 +473,6 @@ function applyLocale() {
     ["#brandVersion", "brandVersion"],
     ["#sourcePlaceholder", "dropPlaceholder"],
     ["#message", "initialMessage"],
-    ["#comparisonTitle", "comparisonTitle"],
     ["#overlayOpacityLabel", "opacityLabel"],
     ["#overlayShortcutHint", "overlayShortcutHint"],
     ["#exportTitle", "exportTitle"],
@@ -473,8 +495,14 @@ function applyLocale() {
   setSelectOptionText(els.exportCellSize, "0.25", t("exportCellSizeHighQuality"));
   setSelectOptionText(els.exportCellSize, "0.3", t("exportCellSizePrinter"));
   setSelectOptionText(els.exportCellSize, "0.35", t("exportCellSizeLowQuality"));
+  updateComparisonTitle(latestResult?.inverted === true);
   updateExportSizeReference();
   updateLibraryStatus();
+}
+
+function updateComparisonTitle(inverted = false) {
+  if (!els.comparisonTitle) return;
+  els.comparisonTitle.textContent = t(inverted ? "comparisonTitleInverted" : "comparisonTitle");
 }
 
 function updateLibraryStatus() {
@@ -631,9 +659,26 @@ async function analyzeFile(file) {
       }
     }
 
+    if (lockComparisonToFullGrid && sampleReference) {
+      const displayRefinedModules = refineOpenCvStraightModulesWithDisplayImage(
+        sample.modules,
+        displayWarpedImageData,
+        sampleReference.data,
+        sampleReference.version,
+      );
+      if (displayRefinedModules !== sample.modules) {
+        sample = {
+          ...sample,
+          modules: displayRefinedModules,
+          verified: true,
+        };
+      }
+    }
+
     const comparisonBounds = USE_JSQR_ONLY_GRID_FIT || lockComparisonToFullGrid ? null : sample.samplingBounds;
     corners = comparisonBounds ? cornersFromTransformAndSamplingBounds(transform, comparisonBounds, warpedImageData) : cornersFromTransform(transform);
     const comparisonImageData = comparisonBounds ? alignWarpedImageToSamplingBounds(displayWarpedImageData, comparisonBounds) : displayWarpedImageData;
+    const comparisonDisplayImageData = sample.inverted ? invertImageData(comparisonImageData) : comparisonImageData;
     const sourceCorners = mapCornerPoints(corners, mapExtractionPointToSource);
     drawSourceOverlay(source.preview.ctx, source.preview.canvas, mapCornersToPreview(sourceCorners, source.preview));
 
@@ -642,7 +687,8 @@ async function analyzeFile(file) {
       throw new Error(t("formatFailed"));
     }
 
-    renderComparisonCanvas(comparisonImageData, sample.modules);
+    updateComparisonTitle(sample.inverted);
+    renderComparisonCanvas(comparisonDisplayImageData, sample.modules);
     renderMatrix(sample.modules, els.matrixCanvas);
     const verification = await verifyExtractedMatrix(sample.modules, detected);
 
@@ -651,8 +697,9 @@ async function analyzeFile(file) {
       sourceFileName: file.name,
       sourceCanvas: source.canvas,
       sourceCorners,
-      warpedImageData: comparisonImageData,
+      warpedImageData: comparisonDisplayImageData,
       rawWarpedImageData: warpedImageData,
+      inverted: sample.inverted === true,
       content: detected.data,
       version: detected.version,
       size,
@@ -692,6 +739,7 @@ function resetUi() {
   latestResult = null;
   resetComparisonDrag();
   overlayEnabled = true;
+  updateComparisonTitle(false);
   updateOverlayToggle();
   setExportButtonsEnabled(false);
   resetSourcePreview();
@@ -817,6 +865,14 @@ async function findQrInImage(sourceCanvas, sourceImage) {
     deadline: performance.now() + DETECTION_TIME_BUDGET_MS,
   };
 
+  const fullFrameModuleGrid = await tryDecodeFullFrameModuleGridQr(
+    sourceImage,
+    sourceCanvas.width,
+    sourceCanvas.height,
+    context,
+  );
+  if (fullFrameModuleGrid) return fullFrameModuleGrid;
+
   if (USE_OPENCV_STRAIGHT_QR) {
     const openCvStraight = await tryDecodeOpenCvStraightQr(sourceImage, sourceCanvas.width, sourceCanvas.height);
     if (openCvStraight) return openCvStraight;
@@ -865,76 +921,422 @@ async function findQrInImage(sourceCanvas, sourceImage) {
 let browserQrDetector = null;
 let openCvLoadPromise = null;
 
+async function tryDecodeFullFrameModuleGridQr(sourceImage, sourceWidth, sourceHeight, context) {
+  if (!sourceImage?.data || sourceWidth <= 0 || sourceHeight <= 0) return null;
+  if (!imageLooksLikeFullFrameModuleGrid(sourceImage, sourceWidth, sourceHeight)) return null;
+
+  const candidates = buildFullFrameGridCandidates(sourceWidth, sourceHeight);
+  if (!candidates.length) return null;
+
+  for (const candidate of candidates) {
+    await stepDetection(context);
+    const sample = sampleWarpedModulesLockedToFullGrid(sourceImage, candidate.size, null, sourceImage);
+    const synthetic = renderModulesToImageData(sample.modules, MATRIX_MODULE_PIXELS);
+    preprocessForJsQr(synthetic, "contrast");
+    const decoded = jsQR(synthetic.data, synthetic.width, synthetic.height, {
+      inversionAttempts: "attemptBoth",
+    });
+    if (!decoded || decoded.version !== candidate.version) continue;
+
+    const sourcePoints = [
+      { x: 0, y: 0 },
+      { x: sourceWidth, y: 0 },
+      { x: sourceWidth, y: sourceHeight },
+      { x: 0, y: sourceHeight },
+    ];
+    const sourceLocation = locationFromSourceQuadrilateral(sourcePoints, candidate.version);
+
+    return {
+      code: decoded,
+      location: sourceLocation,
+      extractionImageData: sourceImage,
+      extractionDisplayImageData: sourceImage,
+      extractionLocation: sourceLocation,
+      mapExtractionPointToSource: (point) => point,
+      lockFullGrid: true,
+      notice: t("fullFrameModuleNotice"),
+    };
+  }
+
+  return null;
+}
+
+function buildFullFrameGridCandidates(width, height) {
+  const maxSide = Math.max(width, height);
+  if (!Number.isFinite(maxSide) || maxSide <= 0) return [];
+  if (Math.abs(width - height) / maxSide > FULL_FRAME_GRID_MAX_ASPECT_DELTA) return [];
+
+  const candidates = [];
+  for (let version = 1; version <= 40; version += 1) {
+    const size = 17 + version * 4;
+    const modulePixelsX = width / size;
+    const modulePixelsY = height / size;
+    if (Math.min(modulePixelsX, modulePixelsY) < FULL_FRAME_GRID_MIN_MODULE_PIXELS) continue;
+
+    const integerFit =
+      Math.abs(modulePixelsX - Math.round(modulePixelsX)) / modulePixelsX +
+      Math.abs(modulePixelsY - Math.round(modulePixelsY)) / modulePixelsY;
+    candidates.push({ version, size, integerFit });
+  }
+
+  return candidates.sort((a, b) => a.integerFit - b.integerFit).slice(0, FULL_FRAME_GRID_CANDIDATE_LIMIT);
+}
+
+function imageLooksLikeFullFrameModuleGrid(imageData, width, height) {
+  const minSide = Math.min(width, height);
+  const step = Math.max(1, Math.round(minSide / 180));
+  const values = [];
+  const edgeValues = [];
+  const edgeBand = Math.max(1, Math.round(minSide * 0.035));
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const gray = sampleGray(imageData, width, height, x, y);
+      values.push(gray);
+      if (x < edgeBand || y < edgeBand || x >= width - edgeBand || y >= height - edgeBand) {
+        edgeValues.push(gray);
+      }
+    }
+  }
+
+  if (values.length < 64 || edgeValues.length < 16) return false;
+  const low = percentile(values, 0.05);
+  const high = percentile(values, 0.95);
+  const edgeLow = percentile(edgeValues, 0.05);
+  const edgeHigh = percentile(edgeValues, 0.95);
+  return low <= 60 && high >= 200 && edgeLow <= 70 && edgeHigh >= 190;
+}
+
 async function tryDecodeOpenCvStraightQr(sourceImage, sourceWidth, sourceHeight) {
   const cv = await loadOpenCvQrDetector();
   if (!cv?.QRCodeDetector) return null;
 
   let mat;
+  let detectorMat;
   let detector;
   let points;
   let straight;
   try {
     mat = cv.matFromImageData(sourceImage);
+    detectorMat = new cv.Mat();
+    cv.cvtColor(mat, detectorMat, cv.COLOR_RGBA2GRAY);
     detector = new cv.QRCodeDetector();
     points = new cv.Mat();
     straight = new cv.Mat();
-    const decodedText = detector.detectAndDecode(mat, points, straight);
-    if (!decodedText || straight.rows <= 0 || straight.cols <= 0) return null;
+    const decodedText = detector.detectAndDecode(detectorMat, points, straight);
+    if (decodedText && straight.rows > 0 && straight.cols > 0) {
+      const detection = buildOpenCvStraightQrDetection(
+        cv,
+        mat,
+        sourceImage,
+        sourceWidth,
+        sourceHeight,
+        decodedText,
+        openCvPointsToRawPoints(points),
+        straight,
+      );
+      if (detection) return detection;
+    }
 
-    const straightResult = modulesFromOpenCvStraightMat(straight);
-    if (!straightResult) return null;
+    points.delete();
+    straight.delete();
+    detector.delete();
+    points = null;
+    straight = null;
+    detector = null;
+    points = new cv.Mat();
+    straight = new cv.Mat();
+    detector = new cv.QRCodeDetector();
+    configureOpenCvQrDetector(detector);
+    const relaxedDecodedText = detector.detectAndDecode(detectorMat, points, straight);
+    if (relaxedDecodedText && straight.rows > 0 && straight.cols > 0) {
+      const detection = buildOpenCvStraightQrDetection(
+        cv,
+        mat,
+        sourceImage,
+        sourceWidth,
+        sourceHeight,
+        relaxedDecodedText,
+        openCvPointsToRawPoints(points),
+        straight,
+      );
+      if (detection) return detection;
+    }
 
-    const { modules, size } = straightResult;
-    const version = (size - 17) / 4;
-    if (!Number.isInteger(version) || version < 1 || version > 40) return null;
-
-    const syntheticForJsQr = renderModulesToImageData(modules, MATRIX_MODULE_PIXELS);
-    const syntheticCode = jsQR(syntheticForJsQr.data, syntheticForJsQr.width, syntheticForJsQr.height, {
-      inversionAttempts: "attemptBoth",
-    });
-    const outputSize = size * WARPED_MODULE_PIXELS;
-    const rawSourcePoints = openCvPointsToRawPoints(points);
-    const displayChoice = chooseOpenCvDisplayWarp(
-      cv,
-      mat,
-      sourceImage,
-      sourceWidth,
-      sourceHeight,
-      rawSourcePoints,
-      modules,
-      outputSize,
-      version,
-    );
-    const sourcePoints = displayChoice?.points ?? (rawSourcePoints ? orderQuadrilateralPoints(rawSourcePoints) : null);
-    const sourceTransform = displayChoice?.transform ?? (sourcePoints ? squareToQuadrilateralTransform(...sourcePoints) : null);
-    if (!sourceTransform || !isFiniteTransform(sourceTransform)) return null;
-
-    const extractionImageData =
-      displayChoice?.imageData ??
-      renderOpenCvWarpedImageData(cv, mat, sourceImage, sourceWidth, sourceHeight, sourceTransform, outputSize);
-    const extractionLocation = fullGridLocation(extractionImageData.width, version);
-
-    return {
-      code:
-        syntheticCode ??
-        buildSyntheticDecodedCode(decodedText, version, renderModulesToImageData(modules, MATRIX_MODULE_PIXELS).width),
-      location: sourcePoints ? locationFromSourceQuadrilateral(sourcePoints, version) : extractionLocation,
-      extractionImageData,
-      extractionDisplayImageData: extractionImageData,
-      extractionLocation,
-      mapExtractionPointToSource:
-        (point) => mapPoint(sourceTransform, point.x / extractionImageData.width, point.y / extractionImageData.height),
-      lockFullGrid: true,
-      notice: t("openCvStraightNotice"),
-    };
+    return tryDecodeOpenCvPanelQr(cv, mat, detectorMat, detector, sourceImage, sourceWidth, sourceHeight);
   } catch {
     return null;
   } finally {
     mat?.delete?.();
+    detectorMat?.delete?.();
     detector?.delete?.();
     points?.delete?.();
     straight?.delete?.();
   }
+}
+
+function configureOpenCvQrDetector(detector) {
+  try {
+    detector?.setEpsX?.(OPENCV_QR_EPS_X);
+    detector?.setEpsY?.(OPENCV_QR_EPS_Y);
+  } catch {
+    // Some OpenCV.js builds do not expose these tunables.
+  }
+}
+
+function buildOpenCvStraightQrDetection(
+  cv,
+  sourceMat,
+  sourceImage,
+  sourceWidth,
+  sourceHeight,
+  decodedText,
+  rawSourcePoints,
+  straight,
+) {
+  const straightResult = modulesFromOpenCvStraightMat(straight, decodedText);
+  if (!straightResult) return null;
+
+  const { modules: straightModules, size } = straightResult;
+  const version = (size - 17) / 4;
+  if (!Number.isInteger(version) || version < 1 || version > 40) return null;
+
+  const outputSize = size * WARPED_MODULE_PIXELS;
+  const displayChoice = chooseOpenCvDisplayWarp(
+    cv,
+    sourceMat,
+    sourceImage,
+    sourceWidth,
+    sourceHeight,
+    rawSourcePoints,
+    straightModules,
+    outputSize,
+    version,
+  );
+  const sourcePoints = displayChoice?.points ?? (rawSourcePoints ? orderQuadrilateralPoints(rawSourcePoints) : null);
+  const sourceTransform = displayChoice?.transform ?? (sourcePoints ? squareToQuadrilateralTransform(...sourcePoints) : null);
+  if (!sourceTransform || !isFiniteTransform(sourceTransform)) return null;
+
+  const rawDisplayFromSource = displayChoice?.imageData ?? null;
+  const displaySamplingBounds = displayChoice?.imageData
+    ? findBestDisplaySamplingBounds(rawDisplayFromSource, size, straightModules)
+    : null;
+  const sourceDisplayImageData = displaySamplingBounds
+    ? alignWarpedImageToSamplingBounds(rawDisplayFromSource, displaySamplingBounds)
+    : rawDisplayFromSource;
+  const modules = refineOpenCvStraightModulesWithDisplayImage(straightModules, sourceDisplayImageData, decodedText, version);
+  const extractionImageData = renderModulesCoreToImageData(modules, WARPED_MODULE_PIXELS);
+  const rawDisplayImageData = rawDisplayFromSource ?? extractionImageData;
+  const extractionDisplayImageData = sourceDisplayImageData ?? extractionImageData;
+  const extractionLocation = fullGridLocation(extractionImageData.width, version);
+  const syntheticForJsQr = renderModulesToImageData(modules, MATRIX_MODULE_PIXELS);
+  const syntheticCode = jsQR(syntheticForJsQr.data, syntheticForJsQr.width, syntheticForJsQr.height, {
+    inversionAttempts: "attemptBoth",
+  });
+
+  return {
+    code:
+      syntheticCode ??
+      buildSyntheticDecodedCode(decodedText, version, syntheticForJsQr.width),
+    location: sourcePoints ? locationFromSourceQuadrilateral(sourcePoints, version) : extractionLocation,
+    extractionImageData,
+    extractionDisplayImageData,
+    extractionLocation,
+    mapExtractionPointToSource: (point) =>
+      mapPointFromAlignedDisplayBounds(sourceTransform, point, extractionImageData, rawDisplayImageData, displaySamplingBounds),
+    lockFullGrid: true,
+    notice: t("openCvStraightNotice"),
+  };
+}
+
+function mapPointFromAlignedDisplayBounds(transform, point, extractionImageData, displayImageData, bounds) {
+  const normalizedX = point.x / extractionImageData.width;
+  const normalizedY = point.y / extractionImageData.height;
+  if (!bounds || samplingBoundsCoversFullImage(displayImageData, bounds)) {
+    return mapPoint(transform, normalizedX, normalizedY);
+  }
+
+  const sourceX = bounds.left + normalizedX * (bounds.right - bounds.left);
+  const sourceY = bounds.top + normalizedY * (bounds.bottom - bounds.top);
+  return mapPoint(transform, sourceX / displayImageData.width, sourceY / displayImageData.height);
+}
+
+function tryDecodeOpenCvPanelQr(cv, sourceMat, detectorMat, detector, sourceImage, sourceWidth, sourceHeight) {
+  const candidates = findOpenCvLightPanelCandidates(cv, detectorMat, sourceWidth, sourceHeight);
+  for (const candidate of candidates) {
+    const result = tryDecodeOpenCvPanelCandidate(
+      cv,
+      sourceMat,
+      detectorMat,
+      detector,
+      sourceImage,
+      sourceWidth,
+      sourceHeight,
+      candidate,
+    );
+    if (result) return result;
+  }
+  return null;
+}
+
+function tryDecodeOpenCvPanelCandidate(cv, sourceMat, detectorMat, detector, sourceImage, sourceWidth, sourceHeight, candidate) {
+  let srcPoints = null;
+  let dstPoints = null;
+  let matrix = null;
+  let warped = null;
+  let points = null;
+  let straight = null;
+  try {
+    const sourcePoints = orderQuadrilateralPoints(candidate.points);
+    srcPoints = cv.matFromArray(4, 1, cv.CV_32FC2, sourcePoints.flatMap((point) => [point.x, point.y]));
+    dstPoints = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      0,
+      0,
+      OPENCV_PANEL_WARP_SIZE - 1,
+      0,
+      OPENCV_PANEL_WARP_SIZE - 1,
+      OPENCV_PANEL_WARP_SIZE - 1,
+      0,
+      OPENCV_PANEL_WARP_SIZE - 1,
+    ]);
+    matrix = cv.getPerspectiveTransform(srcPoints, dstPoints);
+    warped = new cv.Mat();
+    cv.warpPerspective(
+      detectorMat,
+      warped,
+      matrix,
+      new cv.Size(OPENCV_PANEL_WARP_SIZE, OPENCV_PANEL_WARP_SIZE),
+      cv.INTER_CUBIC,
+      cv.BORDER_CONSTANT,
+      new cv.Scalar(255),
+    );
+
+    points = new cv.Mat();
+    straight = new cv.Mat();
+    const decodedText = detector.detectAndDecode(warped, points, straight);
+    if (!decodedText || straight.rows <= 0 || straight.cols <= 0) return null;
+
+    const warpedPoints = openCvPointsToRawPoints(points);
+    if (!warpedPoints) return null;
+    const panelTransform = squareToQuadrilateralTransform(...sourcePoints);
+    const rawSourcePoints = warpedPoints.map((point) =>
+      mapPoint(panelTransform, point.x / OPENCV_PANEL_WARP_SIZE, point.y / OPENCV_PANEL_WARP_SIZE),
+    );
+
+    return buildOpenCvStraightQrDetection(
+      cv,
+      sourceMat,
+      sourceImage,
+      sourceWidth,
+      sourceHeight,
+      decodedText,
+      rawSourcePoints,
+      straight,
+    );
+  } catch {
+    return null;
+  } finally {
+    srcPoints?.delete?.();
+    dstPoints?.delete?.();
+    matrix?.delete?.();
+    warped?.delete?.();
+    points?.delete?.();
+    straight?.delete?.();
+  }
+}
+
+function findOpenCvLightPanelCandidates(cv, grayMat, width, height) {
+  if (!cv?.findContours || !cv?.threshold || !cv?.minAreaRect || !grayMat) return [];
+
+  const candidates = [];
+  for (const threshold of OPENCV_PANEL_THRESHOLDS) {
+    let mask = null;
+    let closed = null;
+    let contours = null;
+    let hierarchy = null;
+    let kernel = null;
+    try {
+      mask = new cv.Mat();
+      closed = new cv.Mat();
+      contours = new cv.MatVector();
+      hierarchy = new cv.Mat();
+      kernel = cv.Mat.ones(7, 7, cv.CV_8U);
+      cv.threshold(grayMat, mask, threshold, 255, cv.THRESH_BINARY);
+      cv.morphologyEx(mask, closed, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 2);
+      cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      for (let index = 0; index < contours.size(); index += 1) {
+        const contour = contours.get(index);
+        try {
+          const area = cv.contourArea(contour);
+          if (!Number.isFinite(area) || area < width * height * 0.025) continue;
+          const points = openCvRotatedRectPoints(cv, cv.minAreaRect(contour));
+          if (!points || !openCvPanelCandidateLooksUseful(points, width, height)) continue;
+          candidates.push({
+            points,
+            area,
+            threshold,
+            score: area * openCvPanelCandidateSquareScore(points),
+          });
+        } finally {
+          contour.delete?.();
+        }
+      }
+    } catch {
+      // Try the next threshold.
+    } finally {
+      mask?.delete?.();
+      closed?.delete?.();
+      contours?.delete?.();
+      hierarchy?.delete?.();
+      kernel?.delete?.();
+    }
+  }
+
+  return mergeOpenCvPanelCandidates(candidates)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, OPENCV_PANEL_CANDIDATE_LIMIT);
+}
+
+function openCvRotatedRectPoints(cv, rect) {
+  let points;
+  try {
+    points = cv.RotatedRect.points(rect);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(points) || points.length < 4) return null;
+  return points.slice(0, 4).map((point) => ({ x: point.x, y: point.y }));
+}
+
+function openCvPanelCandidateLooksUseful(points, width, height) {
+  if (!points.every(isFinitePoint)) return false;
+  const lengths = polygonSideLengths(points);
+  const minSide = Math.min(...lengths);
+  const maxSide = Math.max(...lengths);
+  const area = Math.abs(polygonSignedArea(points));
+  const imageArea = width * height;
+  return minSide >= 80 && maxSide >= 140 && area >= imageArea * 0.035 && area <= imageArea * 0.72;
+}
+
+function openCvPanelCandidateSquareScore(points) {
+  const lengths = polygonSideLengths(points);
+  const minSide = Math.min(...lengths);
+  const maxSide = Math.max(...lengths);
+  return maxSide > 0 ? clamp(minSide / maxSide, 0.1, 1) : 0.1;
+}
+
+function mergeOpenCvPanelCandidates(candidates) {
+  const result = [];
+  for (const candidate of candidates) {
+    const bounds = boundsFromPoints(candidate.points);
+    const duplicate = result.some((existing) => {
+      const existingBounds = boundsFromPoints(existing.points);
+      return bounds && existingBounds && intersectionOverUnion(bounds, existingBounds) > 0.62;
+    });
+    if (!duplicate) result.push(candidate);
+  }
+  return result;
 }
 
 async function loadOpenCvQrDetector() {
@@ -975,7 +1377,7 @@ async function resolveOpenCv(candidate) {
   }
 }
 
-function modulesFromOpenCvStraightMat(straight) {
+function modulesFromOpenCvStraightMat(straight, decodedText = "") {
   const width = straight.cols;
   const height = straight.rows;
   if (!Number.isInteger(width) || width <= 0 || width !== height) return null;
@@ -985,7 +1387,10 @@ function modulesFromOpenCvStraightMat(straight) {
   const data = straight.data;
   if (!data || data.length < width * height * channels) return null;
 
-  const modules = [];
+  const version = (width - 17) / 4;
+  if (!Number.isInteger(version) || version < 1 || version > 40) return null;
+
+  const grayMatrix = [];
   for (let y = 0; y < height; y += 1) {
     const row = [];
     for (let x = 0; x < width; x += 1) {
@@ -994,12 +1399,14 @@ function modulesFromOpenCvStraightMat(straight) {
         channels >= 3
           ? 0.2126 * data[offset] + 0.7152 * data[offset + 1] + 0.0722 * data[offset + 2]
           : data[offset];
-      row.push(gray < 128);
+      row.push(gray);
     }
-    modules.push(row);
+    grayMatrix.push(row);
   }
 
-  return { modules, size: width };
+  const detected = decodedText ? { data: decodedText, version } : null;
+  const candidate = selectBestModuleCandidate(grayMatrix, 128, detected);
+  return { modules: candidate.modules, size: width };
 }
 
 function renderModulesCoreToImageData(modules, modulePixels) {
@@ -1730,6 +2137,99 @@ function scoreWarpAgainstOpenCvModules(warpedImage, modules) {
 
   if (!darkValues.length || !lightValues.length) return -Infinity;
   return mean(lightValues) - mean(darkValues);
+}
+
+function refineOpenCvStraightModulesWithDisplayImage(modules, displayImageData, decodedText, version) {
+  if (!displayImageData || !Array.isArray(modules) || modules.length <= 0) return modules;
+
+  const size = modules.length;
+  const reservedMask = buildReservedFunctionPatternMask(size);
+  const bounds = buildSamplingBounds(displayImageData, size, 0, 0, 0, 0);
+  const grayMatrix = [];
+  const values = [];
+
+  for (let y = 0; y < size; y += 1) {
+    const row = [];
+    for (let x = 0; x < size; x += 1) {
+      const stats = sampleWarpedModuleStats(displayImageData, bounds, x, y);
+      row.push(stats.coreMean);
+      if (!reservedMask[y][x]) values.push(stats.coreMean);
+    }
+    grayMatrix.push(row);
+  }
+
+  if (values.length < size) return modules;
+  const threshold = otsuThreshold(values);
+  const darkValues = values.filter((value) => value <= threshold);
+  const lightValues = values.filter((value) => value > threshold);
+  if (!darkValues.length || !lightValues.length) return modules;
+
+  const contrast = mean(lightValues) - mean(darkValues);
+  if (contrast < OPENCV_DISPLAY_REFINEMENT_MIN_CONTRAST) return modules;
+
+  const displayInverted = isDisplayPolarityInverted(modules, grayMatrix, threshold, reservedMask);
+  const refined = cloneModules(modules);
+  let adjustedCells = 0;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (reservedMask[y][x]) continue;
+      const gray = grayMatrix[y][x];
+      const margin = Math.abs(gray - threshold);
+      if (margin < OPENCV_DISPLAY_REFINEMENT_STRONG_MARGIN) continue;
+      const displayModuleDark = displayInverted ? gray > threshold : gray <= threshold;
+      if (displayModuleDark === modules[y][x]) continue;
+      refined[y][x] = displayModuleDark;
+      adjustedCells += 1;
+    }
+  }
+
+  if (adjustedCells <= 0) return modules;
+  if (adjustedCells > size * size * OPENCV_DISPLAY_REFINEMENT_MAX_FLIP_RATIO) return modules;
+
+  const fixed = applyFixedFunctionPatterns(refined);
+  const detected = { data: decodedText ?? "", version };
+  if (!verifyModulesAgainstDetected(fixed, detected).ok) return modules;
+
+  const originalScore = scoreModulesAgainstDisplayThreshold(modules, grayMatrix, threshold, displayInverted, reservedMask);
+  const refinedScore = scoreModulesAgainstDisplayThreshold(fixed, grayMatrix, threshold, displayInverted, reservedMask);
+  if (refinedScore - originalScore < OPENCV_DISPLAY_REFINEMENT_MIN_SCORE_GAIN) return modules;
+
+  return fixed;
+}
+
+function isDisplayPolarityInverted(modules, grayMatrix, threshold, reservedMask) {
+  let normalScore = 0;
+  let invertedScore = 0;
+  const size = modules.length;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (reservedMask[y][x]) continue;
+      const physicalDark = grayMatrix[y][x] <= threshold;
+      if (physicalDark === modules[y][x]) normalScore += 1;
+      else invertedScore += 1;
+    }
+  }
+
+  return invertedScore > normalScore;
+}
+
+function scoreModulesAgainstDisplayThreshold(modules, grayMatrix, threshold, displayInverted, reservedMask) {
+  let score = 0;
+  const size = modules.length;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (reservedMask[y][x]) continue;
+      const gray = grayMatrix[y][x];
+      const displayModuleDark = displayInverted ? gray > threshold : gray <= threshold;
+      const margin = Math.abs(gray - threshold);
+      score += displayModuleDark === modules[y][x] ? margin : -margin;
+    }
+  }
+
+  return score;
 }
 
 function fullGridLocation(pixelSize, version) {
@@ -4212,12 +4712,23 @@ function scoreWarpedImageAgainstReferenceModules(warpedImage, bounds, referenceM
 
   const darkMean = mean(darkValues);
   const lightMean = mean(lightValues);
-  if (!Number.isFinite(darkMean) || !Number.isFinite(lightMean) || lightMean <= darkMean) return -Infinity;
+  if (!Number.isFinite(darkMean) || !Number.isFinite(lightMean)) return -Infinity;
 
   const threshold = (darkMean + lightMean) / 2;
-  let score = (lightMean - darkMean) * 14;
+  const normalScore = scoreReferenceModulePolarity(samples, threshold, false);
+  const invertedScore = scoreReferenceModulePolarity(samples, threshold, true);
+  return Math.max(normalScore, invertedScore);
+}
+
+function scoreReferenceModulePolarity(samples, threshold, inverted) {
+  const darkValues = samples.filter((sample) => (inverted ? !sample.dark : sample.dark)).map((sample) => sample.gray);
+  const lightValues = samples.filter((sample) => (inverted ? sample.dark : !sample.dark)).map((sample) => sample.gray);
+  if (!darkValues.length || !lightValues.length) return -Infinity;
+
+  let score = (mean(lightValues) - mean(darkValues)) * 14;
   for (const sample of samples) {
-    const margin = sample.dark ? threshold - sample.gray : sample.gray - threshold;
+    const physicallyDark = inverted ? !sample.dark : sample.dark;
+    const margin = physicallyDark ? threshold - sample.gray : sample.gray - threshold;
     score += clamp(margin, -36, 36);
     score += margin > 0 ? 4 : -12;
   }
@@ -4794,10 +5305,11 @@ function buildSampleFromGrayMatrix(grayMatrix, bounds, detected, sourcePenalty, 
     thresholds: candidate.thresholds,
     localAdjustedCells: candidate.adjustedCells,
     samplingBounds: bounds,
-    contrast,
+    contrast: Math.abs(contrast),
     ambiguousCells,
     candidateScore: candidate.score + sourcePenalty,
     verified: candidate.verified,
+    inverted: candidate.inverted,
     _grayMatrix: grayMatrix,
     _rgbRegion: rgbRegion,
   };
@@ -4811,20 +5323,29 @@ function selectBestModuleCandidate(grayMatrix, baseThreshold, detected) {
   for (const thresholdOffset of thresholdOffsets) {
     for (const localWeight of localWeights) {
       const threshold = clamp(baseThreshold + thresholdOffset, 0, 255);
-      const candidate = buildModuleCandidate(grayMatrix, threshold, localWeight);
-      const rawScore =
-        candidate.contrast * 3 -
-        candidate.ambiguousCells * 8 -
-        candidate.adjustedCells * 0.5 -
-        Math.abs(thresholdOffset) * 2 -
-        Math.abs(localWeight - 0.65) * 8;
-      candidates.push({
-        ...candidate,
-        rawScore,
-        score: rawScore,
-        threshold,
-        verified: false,
-      });
+      for (const inverted of [false, true]) {
+        const candidate = buildModuleCandidate(grayMatrix, threshold, localWeight, inverted);
+        const format = decodeFormatInformation(candidate.modules);
+        const formatScore = format ? 120 - format.bitErrors * 24 : -120;
+        const invertedPenalty = inverted ? 6 : 0;
+        const rawScore =
+          candidate.contrast * 3 +
+          formatScore -
+          candidate.ambiguousCells * 8 -
+          candidate.adjustedCells * 0.5 -
+          Math.abs(thresholdOffset) * 2 -
+          Math.abs(localWeight - 0.65) * 8 -
+          invertedPenalty;
+        candidates.push({
+          ...candidate,
+          rawScore,
+          score: rawScore,
+          threshold,
+          format,
+          inverted,
+          verified: false,
+        });
+      }
     }
   }
 
@@ -4844,9 +5365,9 @@ function selectBestModuleCandidate(grayMatrix, baseThreshold, detected) {
   return candidates[0] ?? buildModuleCandidate(grayMatrix, baseThreshold, 0.65);
 }
 
-function buildModuleCandidate(grayMatrix, threshold, localWeight) {
-  const initialModules = applyFixedFunctionPatterns(grayMatrix.map((row) => row.map((gray) => gray < threshold)));
-  const refined = refineModulesWithLocalContrast(grayMatrix, initialModules, threshold, localWeight);
+function buildModuleCandidate(grayMatrix, threshold, localWeight, inverted = false) {
+  const initialModules = applyFixedFunctionPatterns(grayMatrix.map((row) => row.map((gray) => grayIsModuleDark(gray, threshold, inverted))));
+  const refined = refineModulesWithLocalContrast(grayMatrix, initialModules, threshold, localWeight, inverted);
   const modules = applyFixedFunctionPatterns(refined.modules);
   const values = grayMatrix.flat();
   const distances = values.map((gray, index) => Math.abs(gray - refined.thresholds[Math.floor(index / grayMatrix.length)][index % grayMatrix.length]));
@@ -4866,7 +5387,8 @@ function buildModuleCandidate(grayMatrix, threshold, localWeight) {
     thresholds: refined.thresholds,
     adjustedCells: refined.adjustedCells,
     ambiguousCells,
-    contrast: Math.round(mean(lightValues) - mean(darkValues)),
+    contrast: Math.round(Math.abs(mean(lightValues) - mean(darkValues))),
+    inverted,
   };
 }
 
@@ -4901,7 +5423,7 @@ function finalizeSampleWithLocalRgb(sample, colorWarpedImage, detected = null) {
     ...sample,
     modules,
     localAdjustedCells: sample.localAdjustedCells + colorRefined.adjustedCells,
-    contrast: Math.round(mean(lightValues) - mean(darkValues)),
+    contrast: Math.round(Math.abs(mean(lightValues) - mean(darkValues))),
     verified: verification?.ok ?? sample.verified,
     candidateScore: sample.candidateScore - colorRefined.adjustedCells * 0.5 + (verification?.ok && !sample.verified ? 1_000_000 : 0),
   });
@@ -4928,6 +5450,99 @@ function buildRgbMatrixForSample(colorWarpedImage, bounds, size, region) {
 
 function findBestSamplingBounds(warpedImage, size) {
   return findSamplingBoundsCandidates(warpedImage, size, 1)[0].bounds;
+}
+
+function findBestDisplaySamplingBounds(warpedImage, size, modules = null) {
+  const candidates = [];
+  const anchorCandidates = [0];
+  const edgeCandidates = SAMPLING_BOUND_CANDIDATES.filter((value) => value >= 0);
+  const expectations = buildFunctionPatternExpectations(size);
+
+  for (const left of anchorCandidates) {
+    for (const top of anchorCandidates) {
+      for (const right of edgeCandidates) {
+        for (const bottom of edgeCandidates) {
+          const bounds = buildSamplingBounds(warpedImage, size, left, top, right, bottom);
+          const score =
+            scoreSamplingBounds(warpedImage, bounds, expectations) +
+            scoreDisplayGridEdgesForSamplingBounds(warpedImage, bounds, modules) * DISPLAY_GRID_EDGE_SCORE_WEIGHT -
+            (Math.abs(left) + Math.abs(top)) * DISPLAY_BOUNDS_ANCHOR_PENALTY;
+          candidates.push({ bounds, score });
+        }
+      }
+    }
+  }
+
+  return candidates.sort((a, b) => b.score - a.score)[0]?.bounds ?? buildSamplingBounds(warpedImage, size, 0, 0, 0, 0);
+}
+
+function scoreDisplayGridEdgesForSamplingBounds(warpedImage, bounds, modules) {
+  if (!Array.isArray(modules) || !modules.length || bounds.cellWidth < 1 || bounds.cellHeight < 1) return 0;
+
+  const size = modules.length;
+  const samples = [];
+  for (let boundary = 1; boundary < size; boundary += 1) {
+    for (let cell = 0; cell < size; cell += 1) {
+      const leftDark = Boolean(modules[cell]?.[boundary - 1]);
+      const rightDark = Boolean(modules[cell]?.[boundary]);
+      if (leftDark !== rightDark) {
+        samples.push({
+          value: scoreDisplayGridEdgeAtExpected(warpedImage, bounds, "vertical", boundary, cell, leftDark, rightDark),
+          weight: gridEdgeConstraintWeight("vertical", boundary, cell, size, 70),
+        });
+      }
+
+      const topDark = Boolean(modules[boundary - 1]?.[cell]);
+      const bottomDark = Boolean(modules[boundary]?.[cell]);
+      if (topDark !== bottomDark) {
+        samples.push({
+          value: scoreDisplayGridEdgeAtExpected(warpedImage, bounds, "horizontal", boundary, cell, topDark, bottomDark),
+          weight: gridEdgeConstraintWeight("horizontal", boundary, cell, size, 70),
+        });
+      }
+    }
+  }
+
+  if (!samples.length) return 0;
+  return weightedMean(samples.map((sample) => ({ value: clamp(sample.value, -90, 90), weight: sample.weight })));
+}
+
+function scoreDisplayGridEdgeAtExpected(warpedImage, bounds, orientation, boundary, cell, beforeDark, afterDark) {
+  const boundaryPosition =
+    orientation === "vertical"
+      ? bounds.left + boundary * bounds.cellWidth
+      : bounds.top + boundary * bounds.cellHeight;
+  const centerPosition =
+    orientation === "vertical"
+      ? bounds.top + (cell + 0.5) * bounds.cellHeight
+      : bounds.left + (cell + 0.5) * bounds.cellWidth;
+  const before = sampleDisplayGridEdgeSide(warpedImage, bounds, orientation, boundaryPosition, centerPosition, -1);
+  const after = sampleDisplayGridEdgeSide(warpedImage, bounds, orientation, boundaryPosition, centerPosition, 1);
+  return beforeDark && !afterDark ? after - before : before - after;
+}
+
+function sampleDisplayGridEdgeSide(imageData, bounds, orientation, boundaryPosition, centerPosition, side) {
+  const acrossCellSize = orientation === "vertical" ? bounds.cellWidth : bounds.cellHeight;
+  const alongCellSize = orientation === "vertical" ? bounds.cellHeight : bounds.cellWidth;
+  const gap = Math.max(0.8, acrossCellSize * 0.08);
+  const band = Math.max(1.3, acrossCellSize * 0.22);
+  const acrossRatios = [0.28, 0.56, 0.84];
+  const alongRatios = [-0.32, -0.16, 0, 0.16, 0.32];
+  let total = 0;
+  let count = 0;
+
+  for (const across of acrossRatios) {
+    const acrossOffset = side * (gap + band * across);
+    for (const along of alongRatios) {
+      const alongOffset = along * alongCellSize;
+      const x = orientation === "vertical" ? boundaryPosition + acrossOffset : centerPosition + alongOffset;
+      const y = orientation === "vertical" ? centerPosition + alongOffset : boundaryPosition + acrossOffset;
+      total += sampleGray(imageData, imageData.width, imageData.height, x, y);
+      count += 1;
+    }
+  }
+
+  return count > 0 ? total / count : 0;
 }
 
 function findSamplingBoundsCandidates(warpedImage, size, limit) {
@@ -4982,16 +5597,27 @@ function scoreSamplingBounds(warpedImage, bounds, expectations) {
   const lightValues = samples.filter((sample) => !sample.expectedDark).map((sample) => sample.gray);
   if (!darkValues.length || !lightValues.length) return -Infinity;
 
+  const normalScore = scoreSamplingBoundPolarity(samples, false);
+  const invertedScore = scoreSamplingBoundPolarity(samples, true);
+  const { left, top, right, bottom } = bounds.adjustment;
+  const adjustmentPenalty = (Math.abs(left) + Math.abs(top) + Math.abs(right) + Math.abs(bottom)) * 0.5;
+  return Math.max(normalScore, invertedScore) - adjustmentPenalty;
+}
+
+function scoreSamplingBoundPolarity(samples, inverted) {
+  const darkValues = samples.filter((sample) => (inverted ? !sample.expectedDark : sample.expectedDark)).map((sample) => sample.gray);
+  const lightValues = samples.filter((sample) => (inverted ? sample.expectedDark : !sample.expectedDark)).map((sample) => sample.gray);
+  if (!darkValues.length || !lightValues.length) return -Infinity;
+
   const threshold = (mean(darkValues) + mean(lightValues)) / 2;
   let score = mean(lightValues) - mean(darkValues);
   for (const sample of samples) {
-    const margin = sample.expectedDark ? threshold - sample.gray : sample.gray - threshold;
+    const physicallyDark = inverted ? !sample.expectedDark : sample.expectedDark;
+    const margin = physicallyDark ? threshold - sample.gray : sample.gray - threshold;
     score += clamp(margin, -45, 45);
     score += margin > 0 ? 12 : -20;
   }
 
-  const { left, top, right, bottom } = bounds.adjustment;
-  score -= (Math.abs(left) + Math.abs(top) + Math.abs(right) + Math.abs(bottom)) * 0.5;
   return score;
 }
 
@@ -5034,7 +5660,7 @@ function buildFunctionPatternExpectations(size) {
   return [...modules.values()];
 }
 
-function refineModulesWithLocalContrast(grayMatrix, initialModules, globalThreshold, localWeight) {
+function refineModulesWithLocalContrast(grayMatrix, initialModules, globalThreshold, localWeight, inverted = false) {
   const size = grayMatrix.length;
   const modules = [];
   const thresholds = [];
@@ -5048,7 +5674,7 @@ function refineModulesWithLocalContrast(grayMatrix, initialModules, globalThresh
       const threshold = Number.isFinite(localThreshold)
         ? globalThreshold * (1 - localWeight) + localThreshold * localWeight
         : globalThreshold;
-      const isDark = grayMatrix[y][x] < threshold;
+      const isDark = grayIsModuleDark(grayMatrix[y][x], threshold, inverted);
 
       if (isDark !== initialModules[y][x]) adjustedCells += 1;
       row.push(isDark);
@@ -5063,6 +5689,10 @@ function refineModulesWithLocalContrast(grayMatrix, initialModules, globalThresh
     thresholds,
     adjustedCells,
   };
+}
+
+function grayIsModuleDark(gray, threshold, inverted) {
+  return inverted ? gray > threshold : gray < threshold;
 }
 
 function localModuleThreshold(grayMatrix, modules, moduleX, moduleY, fallback) {
@@ -5089,7 +5719,7 @@ function refineModulesWithLocalRgb(grayMatrix, colorMatrix, modules, thresholds)
   }
 
   const size = grayMatrix.length;
-  const fixedMask = buildFunctionPatternMask(size);
+  const fixedMask = buildForcedPatternDisplayMask(size);
   const refined = modules.map((row) => row.slice());
   let adjustedCells = 0;
 
@@ -5165,6 +5795,7 @@ function localRgbModuleClassification(grayMatrix, colorMatrix, modules, threshol
 }
 
 const functionPatternMaskCache = new Map();
+const reservedFunctionPatternMaskCache = new Map();
 
 function buildFunctionPatternMask(size) {
   const cached = functionPatternMaskCache.get(size);
@@ -5208,6 +5839,69 @@ function buildFunctionPatternMask(size) {
   return mask;
 }
 
+function buildReservedFunctionPatternMask(size) {
+  const cached = reservedFunctionPatternMaskCache.get(size);
+  if (cached) return cached;
+
+  const mask = buildFunctionPatternMask(size).map((row) => row.slice());
+  const mark = (x, y) => {
+    if (y < 0 || y >= size || x < 0 || x >= size) return;
+    mask[y][x] = true;
+  };
+
+  for (let i = 0; i <= 8; i += 1) {
+    mark(8, i);
+    mark(i, 8);
+  }
+  for (let i = 0; i < 8; i += 1) {
+    mark(size - 1 - i, 8);
+    mark(8, size - 1 - i);
+  }
+
+  reservedFunctionPatternMaskCache.set(size, mask);
+  return mask;
+}
+
+function buildForcedPatternDisplayMask(size) {
+  const mask = Array.from({ length: size }, () => new Array(size).fill(false));
+  const mark = (x, y) => {
+    if (y < 0 || y >= size || x < 0 || x >= size) return;
+    mask[y][x] = true;
+  };
+  const markFinder = (originX, originY) => {
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) {
+        if (finderPatternValue(x, y)) mark(originX + x, originY + y);
+      }
+    }
+  };
+
+  markFinder(0, 0);
+  markFinder(size - 7, 0);
+  markFinder(0, size - 7);
+  for (let i = 8; i <= size - 9; i += 1) {
+    if (i % 2 === 0) {
+      mark(i, 6);
+      mark(6, i);
+    }
+  }
+
+  const version = Math.round((size - 17) / 4);
+  const centers = ALIGNMENT_PATTERN_CENTERS[version] ?? [];
+  for (const cy of centers) {
+    for (const cx of centers) {
+      if (alignmentOverlapsFinder(cx, cy, size)) continue;
+      for (let y = cy - 2; y <= cy + 2; y += 1) {
+        for (let x = cx - 2; x <= cx + 2; x += 1) {
+          if (alignmentPatternValue(x - cx, y - cy)) mark(x, y);
+        }
+      }
+    }
+  }
+
+  return mask;
+}
+
 function weightedMeanRgb(samples) {
   let r = 0;
   let g = 0;
@@ -5246,6 +5940,7 @@ function applyFixedFunctionPatterns(modules) {
   applyFinderPatternWithSeparator(fixed, 0, 0, 0, 0);
   applyFinderPatternWithSeparator(fixed, size - 7, 0, size - 8, 0);
   applyFinderPatternWithSeparator(fixed, 0, size - 7, 0, size - 8);
+  applyTimingPatterns(fixed);
   applyAlignmentPatterns(fixed);
 
   return fixed;
@@ -5264,6 +5959,15 @@ function finderPatternValue(x, y) {
   const outer = x === 0 || x === 6 || y === 0 || y === 6;
   const inner = x >= 2 && x <= 4 && y >= 2 && y <= 4;
   return outer || inner;
+}
+
+function applyTimingPatterns(modules) {
+  const size = modules.length;
+  for (let i = 8; i <= size - 9; i += 1) {
+    const dark = i % 2 === 0;
+    setFixedModule(modules, i, 6, dark);
+    setFixedModule(modules, 6, i, dark);
+  }
 }
 
 function applyAlignmentPatterns(modules) {
@@ -5579,11 +6283,12 @@ function renderMatrix(modules, canvas) {
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, pixelSize, pixelSize);
-  ctx.fillStyle = "#111111";
+  const fixedMask = buildFunctionPatternMask(size);
 
   modules.forEach((row, y) => {
     row.forEach((isDark, x) => {
       if (!isDark) return;
+      ctx.fillStyle = fixedMask[y]?.[x] ? MATRIX_FIXED_COLOR : MATRIX_DARK_COLOR;
       ctx.fillRect(
         (x + QUIET_ZONE_MODULES) * MATRIX_MODULE_PIXELS,
         (y + QUIET_ZONE_MODULES) * MATRIX_MODULE_PIXELS,
@@ -6419,6 +7124,7 @@ function beginComparisonDrag(event) {
   if (!overlayEnabled || event.button !== 0 || !latestResult?.modules || !latestResult?.warpedImageData) return;
   const cell = cellFromComparisonPointer(event);
   if (!cell) return;
+  if (isForcedPatternDisplayCell(latestResult.modules.length, cell.x, cell.y)) return;
 
   event.preventDefault();
   els.warpedCanvas.setPointerCapture?.(event.pointerId);
@@ -6480,7 +7186,9 @@ function paintComparisonDragTo(cell) {
   if (!latestResult?.modules || !latestResult?.warpedImageData) return;
 
   const from = dragEdit.lastCell ?? cell;
+  const fixedMask = buildForcedPatternDisplayMask(latestResult.modules.length);
   for (const target of cellsBetween(from, cell)) {
+    if (fixedMask[target.y]?.[target.x]) continue;
     paintComparisonCell(target.x, target.y, dragEdit.value);
   }
   dragEdit.lastCell = cell;
@@ -6571,12 +7279,14 @@ function drawModuleOverlay(canvas, modules, options = {}) {
   const opacity = options.opacity ?? getOverlayOpacity();
   const manualAddedCells = options.manualAddedCells;
   const manualRemovedCells = options.manualRemovedCells;
+  const fixedMask = buildForcedPatternDisplayMask(modules.length);
 
   ctx.save();
-  ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
   modules.forEach((row, y) => {
     row.forEach((isDark, x) => {
       if (!isDark) return;
+      const rgb = fixedMask[y]?.[x] ? MODULE_OVERLAY_FIXED_RGB : MODULE_OVERLAY_DARK_RGB;
+      ctx.fillStyle = `rgba(${rgb}, ${opacity})`;
       ctx.fillRect(x * moduleWidth, y * moduleHeight, moduleWidth, moduleHeight);
     });
   });
@@ -6605,6 +7315,12 @@ function drawModuleOverlay(canvas, modules, options = {}) {
 
 function moduleCellKey(x, y) {
   return `${x},${y}`;
+}
+
+function isForcedPatternDisplayCell(size, x, y) {
+  if (x < 0 || y < 0 || x >= size || y >= size) return false;
+  const fixedMask = buildForcedPatternDisplayMask(size);
+  return Boolean(fixedMask[y]?.[x]);
 }
 
 async function generatePreviewProofPngBlob(result) {
@@ -6789,6 +7505,16 @@ function drawModuleGrid(canvas, size) {
 
 function cloneImageData(imageData) {
   return new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+}
+
+function invertImageData(imageData) {
+  const output = cloneImageData(imageData);
+  for (let index = 0; index < output.data.length; index += 4) {
+    output.data[index] = 255 - output.data[index];
+    output.data[index + 1] = 255 - output.data[index + 1];
+    output.data[index + 2] = 255 - output.data[index + 2];
+  }
+  return output;
 }
 
 function cloneModules(modules) {
