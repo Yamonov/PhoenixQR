@@ -65,6 +65,10 @@ python3 -m http.server 8000
 
 ## Changelog
 
+### 1.3.6
+
+- 生成PDFのMediaBox、CropBox、BleedBox、TrimBox、ArtBoxを同一サイズで明示
+
 ### 1.3.5
 
 - 強い変形画像でQR範囲の表示が欠ける問題を修正

@@ -151,7 +151,7 @@ const ALIGNMENT_PATTERN_CENTERS = [
 const TRANSLATIONS = {
   ja: {
     brandTagline: "セル構成の全く同じQRコードを生成",
-    brandVersion: "（Ver 1.3.5）",
+    brandVersion: "（Ver 1.3.6）",
     dropPlaceholder: "画像ファイルをドロップ",
     initialMessage: "画像を選択してください。",
     comparisonTitle: "セルをクリックやドラッグで修正",
@@ -224,7 +224,7 @@ const TRANSLATIONS = {
   },
   en: {
     brandTagline: "Generate a QR code with the exact same cell structure",
-    brandVersion: "(Ver 1.3.5)",
+    brandVersion: "(Ver 1.3.6)",
     dropPlaceholder: "Drop an image file",
     initialMessage: "Select an image.",
     comparisonTitle: "Click or drag cells to edit",
@@ -6814,7 +6814,7 @@ function buildPdfDocument(width, height, content) {
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    `<< /Type /Page /Parent 2 0 R /MediaBox ${pageBox} /TrimBox ${pageBox} /Resources << >> /Contents 4 0 R >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox ${pageBox} /CropBox ${pageBox} /BleedBox ${pageBox} /TrimBox ${pageBox} /ArtBox ${pageBox} /Resources << >> /Contents 4 0 R >>`,
     `<< /Length ${streamLength} >>\nstream\n${streamContent}endstream`,
     `<< /Title (PhoenixQR) /Creator (PhoenixQR) /Producer (PhoenixQR) /CreationDate (${pdfDate}) >>`,
   ];
