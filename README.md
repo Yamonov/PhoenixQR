@@ -65,6 +65,11 @@ python3 -m http.server 8000
 
 ## Changelog
 
+### 1.3.7
+
+- 位置合わせパターンの誤検出により、一部のQR画像を読み取れない問題を修正
+- ブラウザー内蔵のQR検出機能が利用できない環境での読み取りを改善
+
 ### 1.3.6
 
 - 生成PDFのMediaBox、CropBox、BleedBox、TrimBox、ArtBoxを同一サイズで明示

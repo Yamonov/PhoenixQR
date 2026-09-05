@@ -78,6 +78,8 @@ const OPENCV_ALIGNMENT_REFINE_SEARCH_MODULES = 1.45;
 const OPENCV_REFINED_WARP_MIN_SCORE_GAIN = 5;
 const OPENCV_QR_EPS_X = 0.4;
 const OPENCV_QR_EPS_Y = 0.2;
+const OPENCV_PATTERN_QR_CANDIDATE_LIMIT = 3;
+const OPENCV_PATTERN_QR_TIME_BUDGET_MS = 1000;
 const OPENCV_PANEL_WARP_SIZE = 640;
 const OPENCV_PANEL_CANDIDATE_LIMIT = 8;
 const OPENCV_PANEL_THRESHOLDS = [120, 135, 150, 165, 180, 195];
@@ -151,7 +153,7 @@ const ALIGNMENT_PATTERN_CENTERS = [
 const TRANSLATIONS = {
   ja: {
     brandTagline: "セル構成の全く同じQRコードを生成",
-    brandVersion: "（Ver 1.3.6）",
+    brandVersion: "（Ver 1.3.7）",
     dropPlaceholder: "画像ファイルをドロップ",
     initialMessage: "画像を選択してください。",
     comparisonTitle: "セルをクリックやドラッグで修正",
@@ -191,6 +193,7 @@ const TRANSLATIONS = {
     barcodeDetectorNotice: "ブラウザの BarcodeDetector で切り出し",
     barcodeDetectorRotatedNotice: "45度回転後の BarcodeDetector で切り出し",
     openCvStraightNotice: "OpenCV QRCodeDetector で範囲を検出しました。",
+    openCvPatternNotice: "OpenCV の範囲検出と位置合わせパターンの補正で検出しました。",
     fullFrameModuleNotice: "入力全体を QR セル画像として検出しました。",
     barcodeDetectorUnavailable: "このブラウザでは BarcodeDetector の qr_code が使用できません。",
     barcodeDetectorVersionFailed: "BarcodeDetector はQRを検出しましたが、セル数を推定できませんでした。",
@@ -224,7 +227,7 @@ const TRANSLATIONS = {
   },
   en: {
     brandTagline: "Generate a QR code with the exact same cell structure",
-    brandVersion: "(Ver 1.3.6)",
+    brandVersion: "(Ver 1.3.7)",
     dropPlaceholder: "Drop an image file",
     initialMessage: "Select an image.",
     comparisonTitle: "Click or drag cells to edit",
@@ -264,6 +267,7 @@ const TRANSLATIONS = {
     barcodeDetectorNotice: "browser BarcodeDetector pre-crop",
     barcodeDetectorRotatedNotice: "45-degree rotated BarcodeDetector pre-crop",
     openCvStraightNotice: "Detected with OpenCV QRCodeDetector.",
+    openCvPatternNotice: "Detected with OpenCV bounds and refined alignment patterns.",
     fullFrameModuleNotice: "Detected the full image as a QR module grid.",
     barcodeDetectorUnavailable: "This browser does not provide BarcodeDetector qr_code support.",
     barcodeDetectorVersionFailed: "BarcodeDetector detected a QR, but the cell count could not be estimated.",
@@ -1032,6 +1036,7 @@ async function tryDecodeOpenCvStraightQr(sourceImage, sourceWidth, sourceHeight)
     points = new cv.Mat();
     straight = new cv.Mat();
     const decodedText = detector.detectAndDecode(detectorMat, points, straight);
+    const detectedPoints = openCvPointsToRawPoints(points);
     if (decodedText && straight.rows > 0 && straight.cols > 0) {
       const detection = buildOpenCvStraightQrDetection(
         cv,
@@ -1071,7 +1076,12 @@ async function tryDecodeOpenCvStraightQr(sourceImage, sourceWidth, sourceHeight)
       if (detection) return detection;
     }
 
-    return tryDecodeOpenCvPanelQr(cv, mat, detectorMat, detector, sourceImage, sourceWidth, sourceHeight);
+    const panelDetection = tryDecodeOpenCvPanelQr(cv, mat, detectorMat, detector, sourceImage, sourceWidth, sourceHeight);
+    if (panelDetection) return panelDetection;
+
+    // Bounds can remain usable when decoding fails. Refine the function
+    // patterns and verify the sampled grid before discarding the detection.
+    return tryDecodeOpenCvPatternQr(cv, mat, sourceImage, detectedPoints ?? openCvPointsToRawPoints(points));
   } catch {
     return null;
   } finally {
@@ -1081,6 +1091,73 @@ async function tryDecodeOpenCvStraightQr(sourceImage, sourceWidth, sourceHeight)
     points?.delete?.();
     straight?.delete?.();
   }
+}
+
+function tryDecodeOpenCvPatternQr(cv, sourceMat, sourceImage, rawPoints) {
+  if (!rawPoints || rawPoints.length !== 4 || !rawPoints.every(isFinitePoint) || !isUsableQuadrilateral(rawPoints)) return null;
+
+  const deadline = performance.now() + OPENCV_PATTERN_QR_TIME_BUDGET_MS;
+  const candidates = [];
+  for (const points of rotatedQuadrilateralCandidates(rawPoints)) {
+    if (performance.now() > deadline) return null;
+    const transform = squareToQuadrilateralTransform(...points);
+    if (!isFiniteTransform(transform)) continue;
+    const preview = renderOpenCvWarpedImageData(cv, sourceMat, sourceImage, sourceImage.width, sourceImage.height, transform, 420);
+    for (let version = 1; version <= 40; version += 1) {
+      const size = 17 + version * 4;
+      const score = scoreOpenCvFunctionPatternCenters(preview, size);
+      if (Number.isFinite(score)) candidates.push({ transform, version, size, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+
+  for (const candidate of candidates.slice(0, OPENCV_PATTERN_QR_CANDIDATE_LIMIT)) {
+    if (performance.now() > deadline) return null;
+    const { version, size } = candidate;
+    const outputSize = Math.min(size * WARPED_MODULE_PIXELS, 840);
+    const warped = renderOpenCvWarpedImageData(cv, sourceMat, sourceImage, sourceImage.width, sourceImage.height, candidate.transform, outputSize);
+    let warpedMat;
+    let grayMat;
+    let transform;
+    try {
+      warpedMat = cv.matFromImageData(warped);
+      grayMat = new cv.Mat();
+      cv.cvtColor(warpedMat, grayMat, cv.COLOR_RGBA2GRAY);
+      const modulePixels = outputSize / size;
+      const matches = refineOpenCvFinderCenters(cv, grayMat, warped, modulePixels, size);
+      if (!matches || !matches.every((match) => match.accepted)) continue;
+      const centers = Object.fromEntries(matches.map((match) => [
+        match.key,
+        sourcePointFromWarpedPoint(candidate.transform, warped, match.point),
+      ]));
+      const alignment = findOpenCvBottomRightAlignmentReference(cv, grayMat, candidate.transform, warped, size, modulePixels);
+      if (version >= 2 && !alignment) continue;
+      transform = buildOpenCvPatternWeightedTransform(candidate.transform, centers, alignment, size);
+    } finally {
+      warpedMat?.delete?.();
+      grayMat?.delete?.();
+    }
+    if (!transform || !isFiniteTransform(transform) || performance.now() > deadline) continue;
+
+    const displayImage = renderOpenCvWarpedImageData(cv, sourceMat, sourceImage, sourceImage.width, sourceImage.height, transform, outputSize);
+    const sample = sampleWarpedModulesLockedToFullGrid(displayImage, size, null, displayImage);
+    const synthetic = renderModulesToImageData(sample.modules, MATRIX_MODULE_PIXELS);
+    const code = jsQR(synthetic.data, synthetic.width, synthetic.height, { inversionAttempts: "attemptBoth" });
+    if (!code || code.version !== version) continue;
+
+    const extractionImageData = renderModulesCoreToImageData(sample.modules, WARPED_MODULE_PIXELS);
+    return {
+      code,
+      location: locationFromSourceQuadrilateral(transformCornerPointList(transform), version),
+      extractionImageData,
+      extractionDisplayImageData: displayImage,
+      extractionLocation: fullGridLocation(extractionImageData.width, version),
+      mapExtractionPointToSource: (point) => mapPoint(transform, point.x / extractionImageData.width, point.y / extractionImageData.height),
+      lockFullGrid: true,
+      notice: t("openCvPatternNotice"),
+    };
+  }
+  return null;
 }
 
 function configureOpenCvQrDetector(detector) {
